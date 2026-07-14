@@ -1,0 +1,40 @@
+{
+  "id": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "name": "PC Monitor",
+  "version": "1.0.0",
+  "author": {
+    "name": "FancyDashboard Team"
+  },
+  "description": "Real-time PC hardware monitoring - CPU, GPU, RAM usage and temperatures",
+  "entryPoint": "./index.tsx",
+  "icon": "./assets/icon.svg",
+  "grid": {
+    "defaultW": 2,
+    "defaultH": 2,
+    "minW": 2,
+    "minH": 2,
+    "maxW": 4,
+    "maxH": 4,
+    "lockAspectRatio": false
+  },
+  "dependencies": [],
+  "capabilities": ["store:read", "tauri:shell"],
+  "supportedThemes": ["light", "dark", "emerald"],
+  "configSchema": {
+    "monitorType": {
+      "type": "enum",
+      "values": ["cpu", "gpu", "ram", "all"],
+      "default": "all"
+    },
+    "showTemperature": {
+      "type": "boolean",
+      "default": true
+    },
+    "refreshInterval": {
+      "type": "number",
+      "default": 2000,
+      "min": 500,
+      "max": 10000
+    }
+  }
+}

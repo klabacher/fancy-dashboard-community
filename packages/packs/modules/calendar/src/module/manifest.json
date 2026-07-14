@@ -1,0 +1,23 @@
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "description": "Premium calendar widget with month/week views, drag-and-drop task scheduling, visual task indicators, and responsive layouts.",
+  "version": "1.0.0",
+  "author": {
+    "name": "FancyDashboard Team"
+  },
+  "entryPoint": "./index.tsx",
+  "icon": "calendar",
+  "grid": {
+    "defaultW": 2,
+    "defaultH": 2,
+    "minW": 1,
+    "minH": 1,
+    "maxW": 6,
+    "maxH": 6,
+    "lockAspectRatio": false
+  },
+  "dependencies": ["todo"],
+  "capabilities": [],
+  "supportedThemes": ["light", "dark", "emerald"]
+}

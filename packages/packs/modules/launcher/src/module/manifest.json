@@ -1,0 +1,38 @@
+{
+  "id": "launcher-widget",
+  "name": "App Launcher",
+  "version": "1.0.0",
+  "author": {
+    "name": "FancyDashboard Team"
+  },
+  "description": "Launch applications from .lnk shortcuts or custom targets with a modular icon grid",
+  "entryPoint": "./index.tsx",
+  "icon": "./assets/icon.svg",
+  "grid": {
+    "defaultW": 2,
+    "defaultH": 2,
+    "minW": 1,
+    "minH": 1,
+    "maxW": 4,
+    "maxH": 4,
+    "lockAspectRatio": false
+  },
+  "dependencies": [],
+  "capabilities": ["tauri:shell"],
+  "supportedThemes": ["light", "dark", "emerald"],
+  "configSchema": {
+    "items": {
+      "type": "array",
+      "default": []
+    },
+    "gridDensity": {
+      "type": "enum",
+      "values": ["1x1", "2x2", "3x3"],
+      "default": "2x2"
+    },
+    "showLabels": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

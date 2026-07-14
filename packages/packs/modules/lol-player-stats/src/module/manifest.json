@@ -1,0 +1,65 @@
+{
+  "id": "f7e8d9c0-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+  "name": "LoL Player Stats",
+  "version": "1.0.0",
+  "author": {
+    "name": "FancyDashboard Team"
+  },
+  "description": "Real-time League of Legends player stats - Summoner identity, ranked summary, and winrate",
+  "entryPoint": "./index.tsx",
+  "icon": "./assets/icon.svg",
+  "grid": {
+    "defaultW": 2,
+    "defaultH": 3,
+    "minW": 2,
+    "minH": 2,
+    "maxW": 4,
+    "maxH": 4,
+    "lockAspectRatio": false
+  },
+  "dependencies": [],
+  "capabilities": ["store:read", "store:write", "network:fetch"],
+  "supportedThemes": ["light", "dark", "emerald"],
+  "configSchema": {
+    "region": {
+      "type": "enum",
+      "values": [
+        "BR1",
+        "EUN1",
+        "EUW1",
+        "JP1",
+        "KR",
+        "LA1",
+        "LA2",
+        "NA1",
+        "OC1",
+        "PH2",
+        "RU",
+        "SG2",
+        "TH2",
+        "TR1",
+        "TW2",
+        "VN2"
+      ],
+      "default": "NA1"
+    },
+    "gameName": {
+      "type": "string",
+      "default": ""
+    },
+    "tagLine": {
+      "type": "string",
+      "default": ""
+    },
+    "showRankedFlex": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRefreshMinutes": {
+      "type": "number",
+      "default": 5,
+      "min": 1,
+      "max": 60
+    }
+  }
+}

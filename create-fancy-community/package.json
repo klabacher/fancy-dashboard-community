@@ -1,0 +1,15 @@
+{
+  "name": "create-fancy-community",
+  "version": "1.0.0",
+  "description": "CLI to scaffold FancyDashboard community plugins",
+  "main": "index.js",
+  "bin": {
+    "create-fancy-community": "./bin.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

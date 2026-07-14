@@ -1,0 +1,23 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "description": "Animated weather widget with Open-Meteo API integration, automatic geolocation, manual location override, and responsive layouts.",
+  "version": "1.0.0",
+  "author": {
+    "name": "FancyDashboard Team"
+  },
+  "entryPoint": "./index.tsx",
+  "icon": "cloud-sun",
+  "grid": {
+    "defaultW": 4,
+    "defaultH": 4,
+    "minW": 1,
+    "minH": 1,
+    "maxW": 6,
+    "maxH": 6,
+    "lockAspectRatio": false
+  },
+  "dependencies": [],
+  "capabilities": ["network:fetch"],
+  "supportedThemes": ["light", "dark", "emerald"]
+}

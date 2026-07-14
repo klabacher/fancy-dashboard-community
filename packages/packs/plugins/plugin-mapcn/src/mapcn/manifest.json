@@ -1,0 +1,4 @@
+{
+  "deprecated": true,
+  "note": "MapCN now uses the TypeScript module manifest in index.ts."
+}
