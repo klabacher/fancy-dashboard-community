@@ -1,24 +1,36 @@
-import type { ModuleManifest } from '@fancydashboard/sdk/manifest';
+import { defineModulePack } from "@fancydashboard/sdk/manifest";
 
-export const manifest: ModuleManifest = {
-  id: '@fancydashboard/pack-module-{{pluginName}}',
-  name: '{{pluginName}}',
-  description: 'A community plugin for FancyDashboard',
-  version: '1.0.0',
-  entry: {
-    frontend: './index.js'
+export const manifest = defineModulePack({
+  id: "{{pluginName}}",
+  name: "{{pluginName}}",
+  description: "A community module for FancyDashboard",
+  author: "FancyDashboard Community",
+  version: "1.0.0",
+  apiVersion: "1.0.0",
+  kind: "module",
+  tier: "community",
+  metadata: {
+    category: "other",
+    tags: [],
+    license: "MIT",
+    repository: null,
+    screenshots: [],
   },
+  entry: {
+    frontend: "@fancydashboard/pack-module-{{pluginName}}",
+  },
+  permissionsRequested: [],
   widgets: [
     {
-      type: '{{pluginName}}',
-      name: '{{pluginName}} Widget',
-      description: 'Default widget for {{pluginName}}',
-      defaultConfig: {},
-      dimensions: {
-        default: { w: 2, h: 2 },
-        min: { w: 1, h: 1 },
-        max: { w: 4, h: 4 }
-      }
-    }
-  ]
-};
+      id: "{{pluginName}}",
+      name: "{{pluginName}} Widget",
+      description: "Default widget for {{pluginName}}",
+    },
+  ],
+  configSchema: {
+    description: "{{pluginName}} widget configuration schema",
+  },
+  capabilitiesProvided: [],
+});
+
+export default manifest;
