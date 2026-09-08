@@ -31,9 +31,6 @@ export const manifest = defineModulePack({
   configSchema: {
     description: "Clock widget configuration schema",
   },
-  integrity: {
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
   capabilitiesProvided: [],
 });
 
