@@ -179,7 +179,7 @@ export const TodoList: React.FC = () => {
         ))}
       </div>
 
-      <AddTaskInput />
+      <AddTaskInput onAdd={addTask} />
 
       <div className="min-h-0 flex-1 space-y-[clamp(0.25rem,1.3cqh,0.5rem)] overflow-y-auto overscroll-contain pr-px">
         {isLoading ? (
