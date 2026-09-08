@@ -17,7 +17,7 @@ const manifest: PluginManifest = {
   version: "2.0.0",
   description:
     "Multi-widget network telemetry with compact stats, 2D map, and 3D globe",
-  permissions: ["bridge:invoke"],
+  permissions: ["bridge:invoke", "network:capture"],
 };
 
 // ============================================================================
@@ -66,10 +66,9 @@ function handleRustApiError(
 // ============================================================================
 
 /**
- * Start network packet capture and monitoring
- * Requires administrator privileges on most systems
- *
- * @throws Error if sniffer fails to start or is already running
+ * Start network packet capture and monitoring.
+ * Explicitly requests the sensitive `network:capture` capability so the host
+ * can present an informed consent dialog before native capture starts.
  */
 export async function startSniffing(): Promise<boolean> {
   BridgeLogger.info(
@@ -81,19 +80,22 @@ export async function startSniffing(): Promise<boolean> {
   const response = await pluginInvoke<
     Record<string, never>,
     ApiResponse<boolean>
-  >("mapcn_start_sniffing", {});
+  >(
+    "mapcn_start_sniffing",
+    {},
+    ["bridge:invoke", "network:capture"]
+  );
 
   if (!response.success) {
     handleApiError(
       "startSniffing",
       response,
-      "Falha ao iniciar captura de rede. Verifique suas permissões."
+      "Falha ao iniciar captura de rede. Autorize a captura e verifique as permissões do sistema."
     );
   }
 
   const apiResponse = response.data!;
   if (apiResponse.status === "error") {
-    // Provide user-friendly error messages
     let friendlyMessage = apiResponse.message ?? "Falha ao iniciar captura";
 
     if (
@@ -101,19 +103,19 @@ export async function startSniffing(): Promise<boolean> {
       apiResponse.message?.includes("privileges")
     ) {
       friendlyMessage =
-        "Permissões de administrador necessárias. Execute o aplicativo como administrador para usar a captura de pacotes.";
+        "Permissões de administrador necessárias. Execute o aplicativo com os privilégios exigidos pelo driver de captura.";
     } else if (
       apiResponse.message?.includes("GeoIP") ||
       apiResponse.message?.includes("mmdb")
     ) {
       friendlyMessage =
-        "Banco de dados GeoIP não encontrado. Baixe o GeoLite2-City.mmdb do MaxMind e coloque na pasta de dados do aplicativo.";
+        "Banco de dados GeoIP não encontrado. Instale o GeoLite2-City.mmdb na pasta de dados do aplicativo.";
     } else if (
       apiResponse.message?.includes("device") ||
       apiResponse.message?.includes("Npcap")
     ) {
       friendlyMessage =
-        "Nenhum dispositivo de rede encontrado. Certifique-se de que o Npcap está instalado (Windows).";
+        "Nenhum dispositivo de rede disponível. No Windows, confirme que o Npcap está instalado.";
     }
 
     handleRustApiError("startSniffing", apiResponse, friendlyMessage);
@@ -131,11 +133,7 @@ export async function startSniffing(): Promise<boolean> {
   return success;
 }
 
-/**
- * Stop network packet capture
- *
- * @throws Error if sniffer is not running
- */
+/** Stop an already-authorized capture session. */
 export async function stopSniffing(): Promise<boolean> {
   BridgeLogger.info(manifest.id, "stopSniffing", "Parando captura de rede...");
 
@@ -165,10 +163,7 @@ export async function stopSniffing(): Promise<boolean> {
   return success;
 }
 
-/**
- * Get current status of the network sniffer
- * Includes running state, device name, GeoIP DB status, and packet count
- */
+/** Get current sniffer status without starting a capture session. */
 export async function getSnifferStatus(): Promise<SnifferStatus> {
   const response = await pluginInvoke<
     Record<string, never>,
