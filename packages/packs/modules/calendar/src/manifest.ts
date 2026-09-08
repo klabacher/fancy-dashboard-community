@@ -45,9 +45,6 @@ export const manifest = defineModulePack({
   configSchema: {
     description: "Calendar widget configuration schema",
   },
-  integrity: {
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
   capabilitiesProvided: [],
 });
 
