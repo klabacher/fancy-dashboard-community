@@ -12,6 +12,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
+import { useWidgetViewport } from "@fancydashboard/sdk";
 import type { WidgetRuntimeProps } from "@fancydashboard/sdk/plugins/types";
 import { usePluginContext } from "@fancydashboard/sdk/plugins/PluginContext";
 import type { LauncherConfig, LauncherItem } from "./types";
@@ -29,6 +30,7 @@ export default function LauncherWidget({
   config: _runtimeConfig,
 }: WidgetRuntimeProps) {
   const { config, setConfig, logger } = usePluginContext();
+  const viewport = useWidgetViewport();
   const typedConfig = config as unknown as LauncherConfig;
 
   const store = useLauncherStore(typedConfig.items, {
@@ -44,13 +46,36 @@ export default function LauncherWidget({
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
-  // Calculate grid size based on density
   const gridSize = useMemo(() => {
     const size = parseInt(typedConfig.gridDensity.charAt(0), 10);
-    return size;
+    return Number.isFinite(size) && size > 0 ? size : 2;
   }, [typedConfig.gridDensity]);
 
-  // Validate targets on mount
+  const responsiveMetrics = useMemo(() => {
+    const constrained =
+      viewport.size === "micro" ||
+      viewport.size === "compact" ||
+      viewport.isNarrow ||
+      viewport.isShort;
+    const cellWidth = viewport.width > 0 ? viewport.width / gridSize : 96;
+    const cellHeight = viewport.height > 0 ? viewport.height / gridSize : 96;
+    const cellMin = Math.min(cellWidth, cellHeight);
+
+    return {
+      constrained,
+      gap: viewport.size === "micro" ? 2 : viewport.size === "compact" ? 4 : 6,
+      maxPadding: Math.max(2, Math.min(8, Math.floor(cellMin * 0.08))),
+      showHeaderLabel: viewport.width === 0 || (viewport.width >= 180 && viewport.height >= 120),
+      showLabels:
+        typedConfig.showLabels &&
+        gridSize <= 2 &&
+        !viewport.isShort &&
+        (viewport.width === 0 || viewport.width >= 190),
+      iconSize: gridSize <= 2 && !constrained ? ("md" as const) : ("sm" as const),
+      reducedMotion: viewport.reducedMotion,
+    };
+  }, [gridSize, typedConfig.showLabels, viewport]);
+
   useEffect(() => {
     store.items.forEach(async (item) => {
       const target = item.type === "lnk" ? item.targetPath : item.target;
@@ -65,7 +90,6 @@ export default function LauncherWidget({
     });
   }, [store, store.items]);
 
-  // Handle item launch
   const handleLaunch = useCallback(
     async (item: LauncherItem) => {
       if (store.isEditMode) return;
@@ -99,7 +123,6 @@ export default function LauncherWidget({
     [store.isEditMode, logger]
   );
 
-  // Handle item removal
   const handleRemove = useCallback(
     (id: string) => {
       store.removeItem(id);
@@ -108,12 +131,10 @@ export default function LauncherWidget({
     [store, logger]
   );
 
-  // Handle item edit
   const handleEdit = useCallback((item: LauncherItem) => {
     setEditingItem(item);
   }, []);
 
-  // Handle add item
   const handleAddItem = useCallback(
     (item: LauncherItem) => {
       store.addItem(item);
@@ -123,7 +144,6 @@ export default function LauncherWidget({
     [store, logger]
   );
 
-  // Handle update item
   const handleUpdateItem = useCallback(
     (updates: Partial<LauncherItem>) => {
       if (editingItem) {
@@ -135,7 +155,6 @@ export default function LauncherWidget({
     [editingItem, store, logger]
   );
 
-  // Get items sorted by position for the grid
   const sortedItems = useMemo(() => {
     return [...store.items].sort((a, b) => {
       const posA = a.position.row * gridSize + a.position.col;
@@ -144,43 +163,43 @@ export default function LauncherWidget({
     });
   }, [store.items, gridSize]);
 
-  // Determine if we should show labels based on config and size
-  const showLabels = typedConfig.showLabels && gridSize <= 2;
-
   return (
-    <div className="relative flex flex-col h-full w-full p-2 bg-linear-to-br from-black/30 to-black/10 backdrop-blur-md rounded-lg overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">
-          Launcher
-        </span>
-        <div className="flex items-center gap-1">
+    <div className="relative flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg bg-linear-to-br from-black/30 to-black/10 p-[clamp(0.3rem,2.5cqw,0.5rem)] backdrop-blur-md">
+      <div className="flex min-h-0 items-center justify-between gap-1 px-1 pb-[clamp(0.2rem,1.5cqh,0.5rem)]">
+        {responsiveMetrics.showHeaderLabel ? (
+          <span className="min-w-0 truncate text-[clamp(0.55rem,3cqw,0.7rem)] font-medium uppercase tracking-wider text-white/40">
+            Launcher
+          </span>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+        <div className="flex shrink-0 items-center gap-1">
           {store.isEditMode ? (
             <button
               onClick={() => store.setEditMode(false)}
-              className="p-2 rounded-md bg-green-500/20 hover:bg-green-500/30 transition-colors"
+              className="rounded-md bg-green-500/20 p-[clamp(0.35rem,2cqw,0.5rem)] transition-colors hover:bg-green-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300/80"
               aria-label="Done editing"
             >
-              <Check className="w-3 h-3 text-green-400" />
+              <Check className="h-[clamp(0.75rem,4cqw,1rem)] w-[clamp(0.75rem,4cqw,1rem)] text-green-400" />
             </button>
           ) : (
             <button
               onClick={() => store.setEditMode(true)}
-              className="p-2 rounded-md hover:bg-white/10 transition-colors"
-              aria-label="Edit mode"
+              className="rounded-md p-[clamp(0.35rem,2cqw,0.5rem)] transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              aria-label="Edit launcher"
             >
-              <Settings className="w-3 h-3 text-white/50" />
+              <Settings className="h-[clamp(0.75rem,4cqw,1rem)] w-[clamp(0.75rem,4cqw,1rem)] text-white/50" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Grid */}
       <div
-        className="flex-1 grid gap-1.5"
+        className="grid min-h-0 flex-1"
         style={{
-          gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-          gridTemplateRows: `repeat(${gridSize}, 1fr)`,
+          gap: responsiveMetrics.gap,
+          gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
         }}
       >
         <AnimatePresence mode="popLayout">
@@ -189,84 +208,114 @@ export default function LauncherWidget({
             const isValid = store.validityCache[target] !== false;
             const isLaunching = launchingId === item.id;
             const iconScale = item.iconScale ?? 1;
-            const paddingPx = item.paddingPx ?? 4;
+            const configuredPadding = item.paddingPx ?? 4;
+            const paddingPx = Math.min(
+              Math.max(configuredPadding, 0),
+              responsiveMetrics.maxPadding
+            );
 
             return (
               <motion.div
                 key={item.id}
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
+                layout={!responsiveMetrics.reducedMotion}
+                initial={
+                  responsiveMetrics.reducedMotion
+                    ? false
+                    : { opacity: 0, scale: 0.9 }
+                }
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                whileHover={store.isEditMode ? {} : { scale: 1.05 }}
-                whileTap={store.isEditMode ? {} : { scale: 0.95 }}
-                className={`
-                  relative flex flex-col items-center justify-center
-                  rounded-lg cursor-pointer transition-all
-                  ${store.isEditMode ? "bg-white/5" : "hover:bg-white/10"}
-                  ${isLaunching ? "animate-pulse" : ""}
-                  ${!isValid ? "opacity-60" : ""}
-                  group
-                `}
+                exit={
+                  responsiveMetrics.reducedMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, scale: 0.9 }
+                }
+                whileHover={
+                  store.isEditMode || responsiveMetrics.reducedMotion
+                    ? {}
+                    : { scale: 1.04 }
+                }
+                whileTap={
+                  store.isEditMode || responsiveMetrics.reducedMotion
+                    ? {}
+                    : { scale: 0.96 }
+                }
+                className={`group relative flex min-h-0 min-w-0 flex-col items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                  store.isEditMode ? "bg-white/5" : "cursor-pointer hover:bg-white/10"
+                } ${isLaunching && !responsiveMetrics.reducedMotion ? "animate-pulse" : ""} ${
+                  !isValid ? "opacity-60" : ""
+                }`}
                 style={{
                   gridRow: item.position.row + 1,
                   gridColumn: item.position.col + 1,
                   padding: paddingPx,
                 }}
+                role={store.isEditMode ? undefined : "button"}
+                tabIndex={store.isEditMode ? -1 : 0}
+                aria-label={store.isEditMode ? undefined : `Launch ${item.label}`}
                 onClick={() => !store.isEditMode && handleLaunch(item)}
+                onKeyDown={(event) => {
+                  if (
+                    !store.isEditMode &&
+                    (event.key === "Enter" || event.key === " ")
+                  ) {
+                    event.preventDefault();
+                    void handleLaunch(item);
+                  }
+                }}
               >
-                {/* Icon */}
                 <div
                   className="origin-center"
                   style={{ transform: `scale(${iconScale})` }}
                 >
                   <LauncherIcon
                     item={item}
-                    size={gridSize <= 2 ? "md" : "sm"}
+                    size={responsiveMetrics.iconSize}
                     isLaunching={isLaunching}
                   />
                 </div>
 
-                {/* Label */}
-                {showLabels && (
-                  <span className="mt-1 text-[9px] text-white/70 truncate max-w-full px-1 text-center">
+                {responsiveMetrics.showLabels && (
+                  <span className="mt-1 max-w-full truncate px-1 text-center text-[clamp(0.5rem,3cqw,0.65rem)] text-white/70">
                     {item.label}
                   </span>
                 )}
 
-                {/* Invalid indicator */}
                 {!isValid && (
-                  <div className="absolute top-0 right-0 p-0.5" title="Invalid target path">
-                    <AlertCircle className="w-2.5 h-2.5 text-red-400" />
+                  <div
+                    className="absolute right-0 top-0 p-0.5"
+                    title="Invalid target path"
+                  >
+                    <AlertCircle className="h-2.5 w-2.5 text-red-400" />
                   </div>
                 )}
 
-                {/* Edit mode overlay */}
                 {store.isEditMode && (
                   <motion.div
-                    initial={{ opacity: 0 }}
+                    initial={
+                      responsiveMetrics.reducedMotion ? false : { opacity: 0 }
+                    }
                     animate={{ opacity: 1 }}
-                    className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 rounded-lg"
+                    className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-black/40"
                   >
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
                         handleEdit(item);
                       }}
-                      className="p-2 rounded-md bg-blue-500/20 hover:bg-blue-500/40 transition-colors"
-                      aria-label="Edit item"
+                      className="rounded-md bg-blue-500/20 p-[clamp(0.3rem,2cqw,0.5rem)] transition-colors hover:bg-blue-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/80"
+                      aria-label={`Edit ${item.label}`}
                     >
-                      <Edit3 className="w-3 h-3 text-blue-400" />
+                      <Edit3 className="h-3 w-3 text-blue-400" />
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
                         handleRemove(item.id);
                       }}
-                      className="p-2 rounded-md bg-red-500/20 hover:bg-red-500/40 transition-colors"
-                      aria-label="Remove item"
+                      className="rounded-md bg-red-500/20 p-[clamp(0.3rem,2cqw,0.5rem)] transition-colors hover:bg-red-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/80"
+                      aria-label={`Remove ${item.label}`}
                     >
-                      <Trash2 className="w-3 h-3 text-red-400" />
+                      <Trash2 className="h-3 w-3 text-red-400" />
                     </button>
                   </motion.div>
                 )}
@@ -274,29 +323,28 @@ export default function LauncherWidget({
             );
           })}
 
-          {/* Add button (only when not all slots are filled) */}
           {store.items.length < gridSize * gridSize && (
             <motion.button
               key="add-button"
-              layout
-              initial={{ opacity: 0 }}
+              layout={!responsiveMetrics.reducedMotion}
+              initial={
+                responsiveMetrics.reducedMotion ? false : { opacity: 0 }
+              }
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAddModal(true)}
-              className="
-                flex flex-col items-center justify-center
-                rounded-lg border-2 border-dashed border-white/20
-                hover:border-white/40 hover:bg-white/5
-                transition-all
-              "
+              className="flex min-h-0 min-w-0 flex-col items-center justify-center rounded-lg border-2 border-dashed border-white/20 transition-colors hover:border-white/40 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               style={{
                 gridRow: Math.floor(store.items.length / gridSize) + 1,
                 gridColumn: (store.items.length % gridSize) + 1,
               }}
+              aria-label="Add launcher item"
             >
-              <Plus className="w-4 h-4 text-white/40" />
-              {showLabels && (
-                <span className="mt-1 text-[9px] text-white/40">Add</span>
+              <Plus className="h-[clamp(0.8rem,5cqw,1rem)] w-[clamp(0.8rem,5cqw,1rem)] text-white/40" />
+              {responsiveMetrics.showLabels && (
+                <span className="mt-1 text-[clamp(0.5rem,3cqw,0.65rem)] text-white/40">
+                  Add
+                </span>
               )}
             </motion.button>
           )}
@@ -306,17 +354,19 @@ export default function LauncherWidget({
       <AnimatePresence>
         {launchError && (
           <motion.div
-            initial={{ opacity: 0, y: 5 }}
+            initial={
+              responsiveMetrics.reducedMotion ? false : { opacity: 0, y: 5 }
+            }
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur-sm text-white text-[9px] px-2 py-1 rounded w-[90%] text-center truncate z-50"
+            exit={{ opacity: 0, y: responsiveMetrics.reducedMotion ? 0 : 5 }}
+            className="absolute bottom-2 left-1/2 z-50 w-[90%] -translate-x-1/2 truncate rounded bg-red-500/90 px-2 py-1 text-center text-[clamp(0.5rem,3cqw,0.65rem)] text-white backdrop-blur-sm"
+            role="alert"
           >
             {launchError}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Add Item Modal */}
       <AddItemModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -324,7 +374,6 @@ export default function LauncherWidget({
         getNextPosition={() => store.getNextPosition(typedConfig.gridDensity)}
       />
 
-      {/* Edit Item Modal */}
       <EditItemModal
         isOpen={!!editingItem}
         item={editingItem}
