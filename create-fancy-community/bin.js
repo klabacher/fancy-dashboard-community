@@ -19,7 +19,7 @@ if (pluginName.length > 64 || !PACK_ID.test(pluginName)) {
   process.exit(1);
 }
 
-const modulesRoot = path.resolve(__dirname, "../../packages/packs/modules");
+const modulesRoot = path.resolve(__dirname, "../packages/packs/modules");
 const targetDir = path.join(modulesRoot, pluginName);
 
 if (path.dirname(targetDir) !== modulesRoot) {
