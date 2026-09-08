@@ -3,7 +3,7 @@
 // Fancy animated weather display with Open-Meteo API integration
 // ============================================================================
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Wind,
@@ -425,6 +425,23 @@ const useWeather = (config: WeatherConfig) => {
 };
 
 // ============================================================================
+// Container-aware responsive layout
+// ============================================================================
+
+function resolveWeatherSize(
+  width: number,
+  height: number,
+  fallback: WeatherConfig["size"]
+): WeatherConfig["size"] {
+  if (width <= 0 || height <= 0) return fallback;
+  if (width < 240 || height < 190) return "1x1";
+  if (height < 250 && width >= 300) return "2x1";
+  if (width >= 720 && height >= 560) return "4x4";
+  if (width >= 520 && height >= 420) return "3x3";
+  return "2x2";
+}
+
+// ============================================================================
 // Main Weather Widget Component
 // ============================================================================
 
@@ -433,16 +450,30 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
   const config = runtimeConfig as unknown as WeatherConfig;
   const { data, loading, error, lastUpdated } = useWeather(config);
   const [debugState, setDebugState] = useState<WeatherState | "">("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [layoutSize, setLayoutSize] = useState<WeatherConfig["size"]>(config.size);
 
-  if (error && !data) {
-    return (
-      <div className="w-full h-full rounded-[2.5rem] bg-slate-900/90 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 shadow-2xl border border-slate-700">
-        <AlertTriangle className="text-red-400 mb-4" size={48} />
-        <h3 className="font-semibold text-xl">Weather Unavailable</h3>
-        <p className="text-slate-400 text-sm mt-2 text-center">{error}</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const updateSize = (width: number, height: number) => {
+      setLayoutSize((previous) => {
+        const next = resolveWeatherSize(width, height, config.size);
+        return previous === next ? previous : next;
+      });
+    };
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) updateSize(entry.contentRect.width, entry.contentRect.height);
+    });
+
+    const rect = element.getBoundingClientRect();
+    updateSize(rect.width, rect.height);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [config.size]);
 
   // Console debug commands (development only)
   useEffect(() => {
@@ -479,6 +510,16 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
     }
   }, []);
 
+  if (error && !data) {
+    return (
+      <div className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-[clamp(1rem,6cqi,2.5rem)] border border-slate-700 bg-slate-900/90 p-[clamp(0.75rem,5cqi,1.5rem)] text-center text-white shadow-2xl backdrop-blur-xl">
+        <AlertTriangle className="mb-3 text-red-400" size={40} aria-hidden="true" />
+        <h3 className="text-[clamp(1rem,7cqi,1.25rem)] font-semibold">Weather Unavailable</h3>
+        <p className="mt-2 max-w-full truncate text-[clamp(0.7rem,4cqi,0.875rem)] text-slate-400">{error}</p>
+      </div>
+    );
+  }
+
   // State Resolution
   const activeStateKey: WeatherState =
     (config.forceState as WeatherState) ||
@@ -496,7 +537,7 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
 
   // Layout Engine
   const getLayoutConfig = () => {
-    switch (config.size) {
+    switch (layoutSize) {
       case "1x1":
         return {
           classes: "col-span-1 row-span-1 min-h-[160px] p-4",
@@ -535,14 +576,15 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
 
   return (
     <motion.div
+      ref={rootRef}
       layout
-      className={`relative overflow-hidden rounded-[2.5rem] shadow-2xl transition-all duration-700 ease-out bg-linear-to-br ${theme.theme} flex flex-col justify-between group select-none w-full h-full`}
+      className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden rounded-[clamp(1rem,5cqi,2.5rem)] shadow-2xl transition-all duration-700 motion-reduce:transition-none ease-out bg-linear-to-br ${theme.theme} flex flex-col justify-between group select-none`}
       style={{
         padding: layoutConfig.isSmall
-          ? "1rem"
+          ? "clamp(0.5rem, 4cqi, 1rem)"
           : layoutConfig.isGiant
-            ? "2.5rem"
-            : "1.5rem",
+            ? "clamp(1.5rem, 5cqi, 2.5rem)"
+            : "clamp(0.75rem, 4cqi, 1.5rem)",
       }}
     >
       {/* SVG DEFINITIONS */}
