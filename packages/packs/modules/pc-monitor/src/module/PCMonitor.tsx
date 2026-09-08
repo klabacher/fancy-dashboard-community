@@ -128,7 +128,10 @@ export default function PCMonitor(_props: WidgetRuntimeProps) {
   useEffect(() => {
     const fetchSpecs = async () => {
       try {
-        const specsResponse = await SystemActions.getSpecs.invoke();
+        const specsResponse = await SystemActions.getSpecs.invoke(
+          undefined,
+          "pc-monitor"
+        );
         if (specsResponse.success && specsResponse.data) {
           const data = specsResponse.data;
           const systemSpecs: SystemSpecs = {
@@ -232,7 +235,9 @@ export default function PCMonitor(_props: WidgetRuntimeProps) {
                     : 0,
               },
             });
-          }
+          },
+          "pc-monitor",
+          "system:telemetry"
         );
 
         return subscription.unsubscribe;
