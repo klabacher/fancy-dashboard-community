@@ -30,9 +30,6 @@ export const manifest = defineModulePack({
   capabilitiesProvided: [],
   configSchema: {
     description: "MapCN configuration schema"
-  },
-  integrity: {
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
   }
 });
 
