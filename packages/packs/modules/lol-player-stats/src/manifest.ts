@@ -26,9 +26,6 @@ export const manifest = defineModulePack({
   configSchema: {
     description: "LoL Player Stats configuration schema",
   },
-  integrity: {
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
   capabilitiesProvided: [],
 });
 
