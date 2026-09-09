@@ -70,8 +70,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/check-release-bump.mjs > /tmp/community-release-gate.txt
-          grep -Eq 'release=(true|false)' /tmp/community-release-gate.txt
+          : > /tmp/community-release-gate.txt
+          GITHUB_OUTPUT=/tmp/community-release-gate.txt node scripts/check-release-bump.mjs
+          grep -Eq '^release=(true|false)$' /tmp/community-release-gate.txt
           grep -q '^version=1.0.0$' /tmp/community-release-gate.txt
           grep -q '^core_tag=v1.0.0$' /tmp/community-release-gate.txt
 
