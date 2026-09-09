@@ -1,45 +1,36 @@
-# MapCN Prerequisites
+# MapCN prerequisites
 
-## ✅ Required
+MapCN uses a platform-specific native network backend. Destination geolocation is optional and never blocks telemetry startup.
 
-### Windows
+## Windows
 
-- Run as **Administrator** (packet capture permission)
-- **Npcap** installed: [Npcap](https://npcap.com)
-  - Enable **WinPcap API-compatible mode**
+No third-party packet driver or SDK is required.
 
-### Linux
+FancyDashboard uses the Windows **IP Helper API** for active TCP destinations and the operating-system network counters for real receive/transmit rates. This intentionally avoids an Npcap runtime dependency and does not require FancyDashboard to redistribute packet-driver software.
 
-- Run with **sudo/root** permissions for packet capture
-- **libpcap** installed (`libpcap-dev` or equivalent)
+## Linux
 
-### macOS
+MapCN uses `libpcap` for packet observation. The runtime must provide libpcap and the FancyDashboard process needs the packet-capture permissions appropriate for the distribution. On Debian-family systems the development/build package is typically `libpcap-dev`; runtime packaging should depend on the corresponding libpcap runtime library.
 
-- Run with **sudo/root** permissions for packet capture
-- **libpcap** is preinstalled
+## macOS
 
-### GeoIP Database
+MapCN uses the system libpcap. Packet-capture permissions may be required depending on the machine's security policy.
 
-- Download the free GeoLite2 City database from MaxMind
-- Place `GeoLite2-City.mmdb` in:
-  - `<app_data_dir>/GeoLite2-City.mmdb` (recommended)
-  - `<app_resources>/GeoLite2-City.mmdb`
+## Optional GeoIP enrichment
 
-**App data directory locations**:
+To draw geographic destination points, install the GeoLite2 City database from MaxMind and place `GeoLite2-City.mmdb` in either:
+
+- `<app_data_dir>/GeoLite2-City.mmdb` (recommended), or
+- `<app_resources>/GeoLite2-City.mmdb`.
+
+Typical app-data locations:
 
 - Windows: `%APPDATA%/fancydashboard/`
 - Linux: `~/.local/share/fancydashboard/`
 - macOS: `~/Library/Application Support/fancydashboard/`
 
-## ✅ Runtime Checks (Performed by the widget)
+Without the database, MapCN continues to report connections and real aggregate upload/download rates. Geographic markers are simply unavailable, and the widget surfaces an explanatory notice instead of treating this as a capture failure.
 
-- Detects missing GeoIP database
-- Detects missing network capture device
-- Reports issues in a Toast notification
+## Runtime checks
 
-## ✅ Optional (For future 3D/2D advanced rendering)
-
-- `react-globe.gl` + `three`
-- `react-map-gl` + `deck.gl`
-
-These are **not required** for the current lite renderer.
+The widget reports native-backend failures from the host and separately reports whether GeoIP enrichment is available. No synthetic traffic or synthetic bandwidth split is used.
