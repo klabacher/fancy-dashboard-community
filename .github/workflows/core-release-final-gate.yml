@@ -1,0 +1,430 @@
+name: Core Release Final Gate
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-release-final-gate
+  cancel-in-progress: true
+
+env:
+  CORE_REPOSITORY: klabacher/FancyDashboard
+  CORE_BRANCH: release/v1-hardening
+
+jobs:
+  metadata:
+    name: Resolve exact Core revision
+    runs-on: ubuntu-latest
+    outputs:
+      core_sha: ${{ steps.revision.outputs.core_sha }}
+    steps:
+      - name: Require Core read token
+        env:
+          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+        run: test -n "$CORE_READ_TOKEN"
+
+      - name: Checkout exact Core branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ env.CORE_BRANCH }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - id: revision
+        name: Pin revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_sha=$(git rev-parse HEAD)
+          echo "core_sha=$core_sha" >> "$GITHUB_OUTPUT"
+          echo "Validating Core $core_sha"
+
+  rust-candidate:
+    name: Generate and validate audited Cargo.lock
+    needs: metadata
+    runs-on: ubuntu-latest
+    outputs:
+      lock_sha256: ${{ steps.lock.outputs.lock_sha256 }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.metadata.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Linux native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file libayatana-appindicator3-dev libpcap-dev \
+            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
+      - name: Resolve security-fixed lock versions
+        working-directory: apps/host/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo update -p plist@1.8.0 --precise 1.10.0
+          cargo update -p maxminddb --precise 0.27.3
+          cargo update -p bytes@1.11.0 --precise 1.12.1
+          cargo update -p crossbeam-epoch@0.9.18 --precise 0.9.21
+          cargo update -p h2@0.4.12 --precise 0.4.19
+          cargo update -p rustls-webpki@0.103.8 --precise 0.103.15
+          git diff --exit-code -- Cargo.toml
+          test -n "$(git diff --name-only -- Cargo.lock)"
+
+      - name: Require zero known RustSec vulnerabilities
+        working-directory: apps/host/src-tauri
+        run: cargo audit
+
+      - name: Rust format
+        working-directory: apps/host/src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: Rust check
+        working-directory: apps/host/src-tauri
+        run: cargo check --locked --all-targets
+
+      - name: Rust clippy
+        working-directory: apps/host/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Rust tests
+        working-directory: apps/host/src-tauri
+        run: cargo test --locked --all
+
+      - id: lock
+        name: Pin validated lock digest
+        working-directory: apps/host/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_sha256=$(sha256sum Cargo.lock | awk '{print $1}')
+          echo "lock_sha256=$lock_sha256" >> "$GITHUB_OUTPUT"
+          echo "Validated Cargo.lock SHA-256: $lock_sha256"
+
+  commit-lock:
+    name: Commit validated Cargo.lock to Core
+    needs: [metadata, rust-candidate]
+    runs-on: ubuntu-latest
+    outputs:
+      core_sha: ${{ steps.commit.outputs.core_sha }}
+    steps:
+      - name: Checkout validated Core revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.metadata.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+
+      - name: Reproduce validated lock exactly
+        working-directory: apps/host/src-tauri
+        shell: bash
+        env:
+          EXPECTED_LOCK_SHA256: ${{ needs.rust-candidate.outputs.lock_sha256 }}
+        run: |
+          set -euo pipefail
+          cargo update -p plist@1.8.0 --precise 1.10.0
+          cargo update -p maxminddb --precise 0.27.3
+          cargo update -p bytes@1.11.0 --precise 1.12.1
+          cargo update -p crossbeam-epoch@0.9.18 --precise 0.9.21
+          cargo update -p h2@0.4.12 --precise 0.4.19
+          cargo update -p rustls-webpki@0.103.8 --precise 0.103.15
+          actual=$(sha256sum Cargo.lock | awk '{print $1}')
+          test "$actual" = "$EXPECTED_LOCK_SHA256"
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "apps/host/src-tauri/Cargo.lock"
+
+      - id: commit
+        name: Commit and push lock with guarded branch head
+        shell: bash
+        env:
+          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          CORE_WRITE_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_WRITE_TOKEN }}
+          VALIDATED_CORE_SHA: ${{ needs.metadata.outputs.core_sha }}
+        run: |
+          set -euo pipefail
+          push_token="${CORE_WRITE_TOKEN:-$CORE_READ_TOKEN}"
+          test -n "$push_token"
+          auth=$(printf 'x-access-token:%s' "$push_token" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $auth" fetch origin "$CORE_BRANCH"
+          current=$(git rev-parse FETCH_HEAD)
+          test "$current" = "$VALIDATED_CORE_SHA" || {
+            echo "Core branch moved from $VALIDATED_CORE_SHA to $current; refusing stale lock push."
+            exit 1
+          }
+          git config user.name "FancyDashboard Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add apps/host/src-tauri/Cargo.lock
+          git commit -m "security(rust): refresh audited dependency lock"
+          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin HEAD:"$CORE_BRANCH"
+          core_sha=$(git rev-parse HEAD)
+          echo "core_sha=$core_sha" >> "$GITHUB_OUTPUT"
+          echo "Committed audited lock as $core_sha"
+
+  node:
+    name: Final Core workspace checks
+    needs: commit-lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.commit-lock.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 9.12.3
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Verify release metadata
+        run: pnpm verify:release
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify workspace discovery
+        run: pnpm --recursive list --depth -1
+
+      - name: Check changed host formatting
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only origin/main...HEAD -- apps/host | grep -E '\.(js|jsx|ts|tsx|json|css|html)$' | sed 's#^apps/host/##' || true)
+          if ((${#files[@]})); then
+            pnpm --filter @fancydashboard/host exec prettier --check "${files[@]}"
+          fi
+
+      - name: Lint host with zero warnings
+        run: pnpm --filter @fancydashboard/host lint:ci
+
+      - name: Type check release workspaces
+        run: |
+          pnpm --filter @fancydashboard/host type-check
+          pnpm exec tsc -p packages/sdk/tsconfig.json --noEmit
+          pnpm exec tsc -p packages/runtime/tsconfig.json --noEmit
+          pnpm exec tsc -p packages/packs/essentials/module-image/tsconfig.json --noEmit
+          pnpm exec tsc -p packages/packs/essentials/module-media-player/tsconfig.json --noEmit
+          pnpm exec tsc -p packages/packs/essentials/module-text/tsconfig.json --noEmit
+
+      - name: Build SDK and runtime
+        run: |
+          pnpm --filter @fancydashboard/sdk build
+          pnpm --filter @fancydashboard/runtime build
+
+      - name: Verify package isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/fancydashboard-package-smoke
+          mkdir -p /tmp/fancydashboard-package-smoke
+          SDK_TARBALL=$(cd packages/sdk && npm pack --silent --pack-destination /tmp/fancydashboard-package-smoke)
+          RUNTIME_TARBALL=$(cd packages/runtime && npm pack --silent --pack-destination /tmp/fancydashboard-package-smoke)
+          tar -tzf "/tmp/fancydashboard-package-smoke/$SDK_TARBALL" > /tmp/sdk-package-files.txt
+          tar -tzf "/tmp/fancydashboard-package-smoke/$RUNTIME_TARBALL" > /tmp/runtime-package-files.txt
+          grep -q '^package/dist/index.js$' /tmp/sdk-package-files.txt
+          grep -q '^package/dist/index.d.ts$' /tmp/sdk-package-files.txt
+          grep -q '^package/dist/index.js$' /tmp/runtime-package-files.txt
+          grep -q '^package/dist/index.d.ts$' /tmp/runtime-package-files.txt
+          ! grep -q '^package/src/' /tmp/sdk-package-files.txt
+          ! grep -q '^package/src/' /tmp/runtime-package-files.txt
+
+      - name: Build and verify essential packs
+        run: |
+          pnpm --filter @fancydashboard/pack-module-image build
+          pnpm --filter @fancydashboard/pack-module-media-player build
+          pnpm --filter @fancydashboard/pack-module-text build
+          pnpm verify:pack-artifacts
+
+      - name: Run JavaScript tests
+        run: |
+          pnpm --filter @fancydashboard/host exec vitest run --coverage --reporter=verbose
+          pnpm --filter @fancydashboard/sdk test
+          pnpm --filter @fancydashboard/runtime exec vitest run
+          pnpm --filter marketplace-server test
+
+      - name: Build complete workspace
+        run: pnpm -r --if-present run build
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+  rust:
+    name: Final RustSec and Rust checks
+    needs: commit-lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.commit-lock.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Linux native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file libayatana-appindicator3-dev libpcap-dev \
+            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: rustfmt, clippy
+
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+
+      - name: Verify locked Rust release
+        working-directory: apps/host/src-tauri
+        run: |
+          cargo audit
+          cargo fmt --all -- --check
+          cargo check --locked --all-targets
+          cargo clippy --locked --all-targets --all-features -- -D warnings
+          cargo test --locked --all
+
+  native:
+    name: Final native ${{ matrix.name }}
+    needs: commit-lock
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.commit-lock.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Setup Npcap SDK
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/setup-npcap-sdk.ps1
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+
+      - name: Native build
+        working-directory: apps/host/src-tauri
+        run: cargo build --locked
+
+      - name: Native tests
+        working-directory: apps/host/src-tauri
+        run: cargo test --locked --all
+
+  community:
+    name: Final Community and marketplace integration
+    needs: commit-lock
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact Core revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.commit-lock.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout Community candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: klabacher/fancy-dashboard-community
+          ref: release/v1-responsive-hardening
+          path: community
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 9.12.3
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Reject tracked generated artifacts
+        shell: bash
+        run: |
+          tracked=$(git -C community ls-files | grep -E '(^|/)(node_modules|dist)/' || true)
+          test -z "$tracked" || { echo "$tracked"; exit 1; }
+
+      - name: Scaffold safety smoke test
+        run: |
+          node community/create-fancy-community/bin.js ci-scaffold
+          if node community/create-fancy-community/bin.js ../escape; then exit 1; fi
+
+      - name: Resolve composite workspace
+        run: pnpm install --no-frozen-lockfile --lockfile=false
+
+      - name: Build SDK, runtime and every Community pack
+        run: |
+          pnpm --filter @fancydashboard/sdk build
+          pnpm --filter @fancydashboard/runtime build
+          pnpm --filter './community/packages/packs/**' -r run build
+          pnpm --filter './community/packages/packs/**' -r --if-present run test
+
+      - name: Verify deterministic marketplace artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t COMMUNITY_PACKS < <(find community/packages/packs -name package.json -print | sed 's#/package.json$##' | sort)
+          CORE_PACKS=(packages/packs/essentials/module-image packages/packs/essentials/module-media-player packages/packs/essentials/module-text)
+          pnpm --filter './packages/packs/essentials/**' -r run build
+          node scripts/build-marketplace-artifacts.mjs --output release/marketplace-a "${CORE_PACKS[@]}" "${COMMUNITY_PACKS[@]}"
+          node scripts/build-marketplace-artifacts.mjs --output release/marketplace-b "${CORE_PACKS[@]}" "${COMMUNITY_PACKS[@]}"
+          cmp release/marketplace-a/catalog.json release/marketplace-b/catalog.json
+          diff -rq release/marketplace-a/artifacts release/marketplace-b/artifacts
+          node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync("release/marketplace-a/catalog.json","utf8")); if(c.length < 4 || c.some(x => !/^[a-f0-9]{64}$/.test(x.integrity) || /^0{64}$/.test(x.integrity))) process.exit(1); console.log(`verified ${c.length} artifacts`);'
+
+  secrets:
+    name: Final full-history secret scan
+    needs: commit-lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ needs.commit-lock.outputs.core_sha }}
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Scan Core Git history for credentials
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
