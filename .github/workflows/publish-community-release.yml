@@ -15,7 +15,7 @@ concurrency:
 jobs:
   release-gate:
     name: Detect Community release
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     outputs:
       release: ${{ steps.bump.outputs.release }}
       version: ${{ steps.bump.outputs.version }}
@@ -44,7 +44,7 @@ jobs:
     name: Build, verify and publish Community assets
     needs: release-gate
     if: needs.release-gate.outputs.release == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.release-gate.outputs.version }}
       RELEASE_BASE: ${{ needs.release-gate.outputs.base }}
