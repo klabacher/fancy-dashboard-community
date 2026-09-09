@@ -1,87 +1,74 @@
-# MapCN - Network Telemetry Suite
+# MapCN — Network Telemetry Suite
 
-Multi-widget network telemetry with compact status, 2D map, and 3D globe.
+Multi-widget network telemetry with compact status, a 2D map, and a 3D globe.
 
-## 🎯 Widgets
+## Widgets
 
-- **Compact Widget**: Resizable telemetry card (1x1/2x1/2x2)
-- **2D Map Widget**: Lite world map with neon connection lines
-- **3D Globe Widget**: Rotating globe with animated arcs
-- **Live Telemetry**: Download/upload speed, packet totals, online/offline, last seen
+- **Compact Widget** — resizable telemetry card.
+- **2D Map Widget** — world map with live destination lines when GeoIP data is available.
+- **3D Globe Widget** — globe with geographic connection arcs when GeoIP data is available.
+- **Live Telemetry** — real aggregate download/upload rate, observed packet totals, online/offline status, and recent destinations.
 
-## 📋 Requirements
+## Requirements
 
-See [src/modules/mapcn/PREREQUISITES.md](src/modules/mapcn/PREREQUISITES.md).
+See [PREREQUISITES.md](./PREREQUISITES.md).
 
-## 🚀 Usage
+Windows has no Npcap requirement. Linux/macOS use the platform libpcap backend. `GeoLite2-City.mmdb` is optional enrichment: network telemetry runs without it, while map markers require it.
+
+## Usage
 
 1. Add a MapCN widget from the module list.
-2. Click **Start** to enable capture.
-3. Open the widget settings overlay to customize it.
+2. Click **Start** to enable network monitoring.
+3. Open the widget settings overlay to customize the presentation.
 
-## 🔧 Configuration
+## Security and privacy
 
-Each widget has its own configuration overlay (per-widget).
+- **Local processing** — captured/observed network metadata is processed on the device.
+- **No telemetry upload** — MapCN does not send captured network metadata to a FancyDashboard server.
+- **No synthetic bandwidth split** — aggregate receive/transmit rates come from operating-system network counters.
+- **Bounded state** — recent connection entries expire after 60 seconds and the host emits at most the top 100 entries per snapshot.
+- **Payload avoidance** — MapCN uses packet headers for connection metadata on libpcap platforms; Windows uses the IP Helper connection table rather than packet payloads.
+- **Explicit permission** — the module declares `network:capture`, which is mediated by the FancyDashboard permission/consent layer.
 
-## 🛡️ Security & Privacy
+## Platform architecture
 
-- **Local Processing**: All packet capture and processing happens locally
-- **No Data Upload**: Network data is never sent to external servers
-- **Memory Safe**: Old connections are automatically cleared (60s retention)
-- **Limited Scope**: Only captures headers, not payload data
+### Windows
 
-## ⚠️ Troubleshooting
+The Rust host uses Windows IP Helper (`GetExtendedTcpTable`) to enumerate active TCP destinations and `sysinfo` interface counters for real receive/transmit rates. This avoids a redistributable packet-driver dependency and lets a normal FancyDashboard Windows installation start without Npcap.
 
-### "Failed to open capture device"
+The IP Helper table does not expose per-flow byte counters, so Windows connection entries intentionally report `bytes: 0`; aggregate upload/download rates remain real. MapCN does not fabricate per-connection transfer totals.
 
-- **Cause**: Missing administrator privileges
-- **Solution**: Run the application as administrator
+### Linux and macOS
 
-### "No network device found"
+The Rust host uses libpcap for connection discovery and packet-size accounting. Packet-capture permissions are controlled by the operating system/distribution.
 
-- **Cause**: Npcap (Windows) or libpcap not installed
-- **Solution**: Install the required packet capture library
+### GeoIP
 
-### "GeoIP database not found"
+When `GeoLite2-City.mmdb` is present, destination IPs are enriched locally with country/city coordinates using `maxminddb`. Missing GeoIP data is treated as an optional capability, not a monitoring failure.
 
-- **Cause**: GeoLite2-City.mmdb not in the expected location
-- **Solution**: Download and place the database file as described above
+## Troubleshooting
+
+### Network monitor cannot start
+
+The widget displays the native host error returned by the platform backend. On Linux/macOS, verify libpcap is installed and the process has the required capture permissions. Windows does not require Npcap.
+
+### Connections appear but the map has no geographic lines
+
+Install `GeoLite2-City.mmdb` as documented in [PREREQUISITES.md](./PREREQUISITES.md). Telemetry and connection counts continue to work without it.
 
 ### No connections appearing
 
-- **Check**: Ensure packet capture has started (green indicator)
-- **Check**: Verify you have active internet connections
-- **Check**: Try stopping and restarting the capture
+- Confirm monitoring is running (green/live indicator).
+- Generate normal internet traffic and retry.
+- Remember that the Windows backend currently visualizes active **TCP** remote destinations; aggregate bandwidth still includes operating-system network traffic.
 
-## 🏗️ Architecture
+## Performance
 
-### Rust Backend
+- Snapshots are emitted every 500 ms.
+- The host bounds the visible connection list to 100 entries.
+- GeoIP results are cached for the session instead of reopening/decoding the same destination repeatedly.
+- Stale connection state is removed automatically.
 
-- `network_sniffer.rs`: Packet capture using pcap crate
-- Event streaming via Tauri IPC (500ms batches)
-- GeoIP lookup using maxminddb
+## License
 
-### React Frontend
-
-- `api.ts`: Bridge integration for Tauri commands
-- `useNetworkSniffing.ts`: Event subscription and state management
-- `useMapCNStore.ts`: Zustand store for connections and history
-- Widgets: MapCNCompactWidget, MapCNMap2DWidget, MapCNGlobeWidget
-
-## 📊 Performance
-
-- **Batch Processing**: Events emitted every 500ms to prevent UI lag
-- **Connection Limit**: Shows top 100 connections to maintain performance
-- **History Retention**: Keeps last 60 seconds of speed data
-- **Automatic Cleanup**: Removes stale connections (>60s old)
-
-## 🔮 Future Enhancements
-
-- [ ] Advanced Rust telemetry (per-connection packet in/out)
-- [ ] Hover tooltips with live throughput deltas
-- [ ] Historical connection playback
-- [ ] Connection labeling and service heuristics
-
-## 📝 License
-
-Part of FancyDashboard - see main project license.
+Part of FancyDashboard — see the repository license.
