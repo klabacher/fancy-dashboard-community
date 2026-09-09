@@ -23,12 +23,12 @@ jobs:
       base: ${{ steps.bump.outputs.base }}
       core_tag: ${{ steps.bump.outputs.core_tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
 
@@ -50,7 +50,7 @@ jobs:
       CORE_TAG: ${{ needs.release-gate.outputs.core_tag }}
     steps:
       - name: Checkout Community
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -67,7 +67,7 @@ jobs:
           fi
 
       - name: Checkout exact compatible FancyDashboard core
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: klabacher/FancyDashboard
           ref: ${{ env.CORE_TAG }}
@@ -77,12 +77,12 @@ jobs:
           fetch-depth: 1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.12.3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
 
@@ -162,7 +162,7 @@ jobs:
             --output release/publish/RELEASE_NOTES.md
 
       - name: Upload build evidence
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: fancydashboard-community-${{ env.VERSION }}
           path: release/publish
