@@ -100,3 +100,91 @@ jobs:
         run: |
           echo "Full SDK/runtime compatibility is intentionally validated by FancyDashboard core CI."
           echo "Community release CI performs a second full composite build against compatibility.json before publishing."
+
+  core-release-candidate:
+    name: Core RC RustSec contingency gate
+    needs: validate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require read-only private-core token
+        shell: bash
+        env:
+          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CORE_READ_TOKEN" || { echo "Missing FANCYDASHBOARD_CORE_READ_TOKEN"; exit 1; }
+
+      - name: Checkout FancyDashboard release candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: klabacher/FancyDashboard
+          ref: release/v1-hardening
+          path: core
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libpcap-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
+      - name: Capture baseline RustSec findings
+        working-directory: core/apps/host/src-tauri
+        shell: bash
+        run: |
+          set +e
+          cargo audit | tee "$RUNNER_TEMP/core-rustsec-baseline.txt"
+          status=${PIPESTATUS[0]}
+          echo "Baseline cargo-audit exit code: $status"
+          exit 0
+
+      - name: Generate targeted audited lockfile candidate
+        working-directory: core/apps/host/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp Cargo.lock "$RUNNER_TEMP/Cargo.lock.before"
+          cargo update -p maxminddb || true
+          cargo update -p bytes@1.11.0 || true
+          cargo update -p crossbeam-epoch@0.9.18 || true
+          cargo update -p h2@0.4.12 || true
+          cargo update -p quick-xml@0.38.4 || true
+          cargo update -p rustls-webpki@0.103.8 || true
+          cargo audit
+          cargo fmt --all -- --check
+          cargo check --locked --all-targets
+          cargo clippy --locked --all-targets --all-features -- -D warnings
+          cargo test --locked --all
+          git diff -- Cargo.lock > "$RUNNER_TEMP/core-cargo-lock.patch"
+          cp Cargo.lock "$RUNNER_TEMP/Cargo.lock.candidate"
+
+      - name: Upload audited Cargo.lock candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fancydashboard-core-audited-cargo-lock
+          path: |
+            ${{ runner.temp }}/Cargo.lock.candidate
+            ${{ runner.temp }}/core-cargo-lock.patch
+            ${{ runner.temp }}/core-rustsec-baseline.txt
+          if-no-files-found: error
+          retention-days: 7
