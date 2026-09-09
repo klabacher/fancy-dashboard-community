@@ -15,7 +15,7 @@ concurrency:
 jobs:
   release-gate:
     name: Detect Community release
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     outputs:
       release: ${{ steps.bump.outputs.release }}
       version: ${{ steps.bump.outputs.version }}
@@ -28,7 +28,8 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
 
@@ -43,7 +44,7 @@ jobs:
     name: Build, verify and publish Community assets
     needs: release-gate
     if: needs.release-gate.outputs.release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     env:
       VERSION: ${{ needs.release-gate.outputs.version }}
       RELEASE_BASE: ${{ needs.release-gate.outputs.base }}
@@ -76,15 +77,15 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-        with:
-          version: 9.12.3
-
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 9.12.3
 
       - name: Verify checked-out core metadata
         shell: bash
@@ -122,11 +123,10 @@ jobs:
           pnpm --filter @fancydashboard/sdk build
           pnpm --filter @fancydashboard/runtime build
 
-      - name: Build every Community pack
-        run: pnpm --filter './packages/packs/**' -r run build
-
-      - name: Run Community pack tests when provided
-        run: pnpm --filter './packages/packs/**' -r --if-present run test
+      - name: Build and test every Community pack
+        run: |
+          pnpm --filter './packages/packs/**' -r run build
+          pnpm --filter './packages/packs/**' -r --if-present run test
 
       - name: Build deterministic Marketplace artifacts
         shell: bash
@@ -138,12 +138,6 @@ jobs:
             exit 1
           fi
           node core/scripts/build-marketplace-artifacts.mjs --output release/community "${PACKS[@]}"
-
-      - name: Rebuild artifacts and prove reproducibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t PACKS < <(find packages/packs -mindepth 3 -maxdepth 3 -name package.json -type f -print | sed 's#/package.json$##' | sort)
           node core/scripts/build-marketplace-artifacts.mjs --output release/community-second "${PACKS[@]}"
           cmp release/community/catalog.json release/community-second/catalog.json
           diff -rq release/community/artifacts release/community-second/artifacts
@@ -152,7 +146,7 @@ jobs:
       - name: Package release bundle, tutorial and SHA-256
         run: node scripts/package-community-release.mjs --input release/community --output release/publish --version "$VERSION"
 
-      - name: Generate release notes with commit titles and descriptions
+      - name: Generate release notes
         run: |
           node scripts/generate-release-notes.mjs \
             --version "$VERSION" \
@@ -172,16 +166,21 @@ jobs:
       - name: Publish GitHub Release
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release create "v$VERSION" \
-            "release/publish/FancyDashboard-Community-$VERSION.zip" \
-            "release/publish/catalog.json" \
-            "release/publish/compatibility.json" \
-            "release/publish/INSTALLATION.md" \
-            "release/publish/SHA256SUMS.txt" \
-            release/publish/artifacts/*.zip \
-            --target "$GITHUB_SHA" \
-            --title "FancyDashboard Community v$VERSION" \
-            --notes-file release/publish/RELEASE_NOTES.md
+          args=(
+            --tag "v$VERSION"
+            --target "$GITHUB_SHA"
+            --title "FancyDashboard Community v$VERSION"
+            --notes "release/publish/RELEASE_NOTES.md"
+            --asset "release/publish/FancyDashboard-Community-$VERSION.zip"
+            --asset "release/publish/catalog.json"
+            --asset "release/publish/compatibility.json"
+            --asset "release/publish/INSTALLATION.md"
+            --asset "release/publish/SHA256SUMS.txt"
+          )
+          while IFS= read -r artifact; do
+            args+=(--asset "$artifact")
+          done < <(find release/publish/artifacts -maxdepth 1 -type f -name '*.zip' | sort)
+          node core/scripts/publish-github-release.mjs "${args[@]}"
