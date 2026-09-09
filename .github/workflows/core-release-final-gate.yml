@@ -277,11 +277,9 @@ jobs:
           ref: ${{ needs.commit-lock.outputs.core_sha }}
           token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
           persist-credentials: false
-      - if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/setup-npcap-sdk.ps1
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-      - working-directory: apps/host/src-tauri
+      - name: Build without third-party Windows packet-driver SDK
+        working-directory: apps/host/src-tauri
         run: cargo build --locked
       - working-directory: apps/host/src-tauri
         run: cargo test --locked --all
