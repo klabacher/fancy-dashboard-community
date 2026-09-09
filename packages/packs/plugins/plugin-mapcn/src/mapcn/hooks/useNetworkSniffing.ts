@@ -1,17 +1,16 @@
 // ============================================================================
-// MapCN Module - Network Sniffing Hook
-// Manages connection to Rust backend and event streaming
+// MapCN Module - Network Monitoring Hook
+// Manages connection to the native backend and event streaming
 // ============================================================================
 
 import { useEffect, useCallback, useState } from "react";
-import { BridgeLogger, subscribeToBridgeEvent } from "@fancydashboard/sdk/bridge";
+import {
+  BridgeLogger,
+  subscribeToBridgeEvent,
+} from "@fancydashboard/sdk/bridge";
 import { startSniffing, stopSniffing, getSnifferStatus } from "../api";
 import { useMapCNStore } from "./useMapCNStore";
 import { NetworkSnapshotSchema } from "../types";
-
-// ============================================================================
-// Hook Implementation
-// ============================================================================
 
 export interface UseNetworkSniffingReturn {
   isRunning: boolean;
@@ -22,61 +21,62 @@ export interface UseNetworkSniffingReturn {
   refreshStatus: () => Promise<void>;
 }
 
-function validatePrerequisites(status: {
+/**
+ * GeoIP is optional enrichment. Backend/device availability is not inferred
+ * from deviceName because a stopped native monitor legitimately has no active
+ * device yet; actual backend failures are emitted by Rust as mapcn://error.
+ */
+function validateOptionalEnrichment(status: {
   hasGeoipDb: boolean;
-  deviceName: string | null;
 }): string[] {
-  const issues: string[] = [];
-
-  if (!status.deviceName) {
-    issues.push(
-      "No network device detected. Ensure Npcap/libpcap is installed and active."
-    );
-  }
-
-  if (!status.hasGeoipDb) {
-    issues.push(
-      "GeoIP database missing. Download GeoLite2-City.mmdb from MaxMind to enable geolocation."
-    );
-  }
-
-  return issues;
+  if (status.hasGeoipDb) return [];
+  return [
+    "GeoIP database missing. Network telemetry still works; install GeoLite2-City.mmdb from MaxMind to enable destination geolocation.",
+  ];
 }
 
 export function useNetworkSniffing(): UseNetworkSniffingReturn {
   const [isLoading, setIsLoading] = useState(false);
 
-  // Use selectors to avoid re-rendering on every store change (like connection updates)
-  const updateSnapshot = useMapCNStore((s) => s.updateSnapshot);
-  const updateStatus = useMapCNStore((s) => s.updateStatus);
-  const setError = useMapCNStore((s) => s.setError);
-  const error = useMapCNStore((s) => s.error);
-  // Only subscribe to isRunning changes, not the whole status object (which has packet counts)
-  const isRunning = useMapCNStore((s) => s.status?.isRunning ?? false);
+  const updateSnapshot = useMapCNStore((state) => state.updateSnapshot);
+  const updateStatus = useMapCNStore((state) => state.updateStatus);
+  const setError = useMapCNStore((state) => state.setError);
+  const error = useMapCNStore((state) => state.error);
+  const isRunning = useMapCNStore(
+    (state) => state.status?.isRunning ?? false
+  );
 
-  // Get initial status on mount
+  const surfaceOptionalEnrichment = useCallback(
+    (status: { hasGeoipDb: boolean }) => {
+      const issues = validateOptionalEnrichment(status);
+      if (issues.length > 0) setError(issues.join(" "));
+    },
+    [setError]
+  );
+
   useEffect(() => {
     const fetchInitialStatus = async () => {
       try {
-        const snifferStatus = await getSnifferStatus();
-        updateStatus(snifferStatus);
-
-        const issues = validatePrerequisites(snifferStatus);
-        if (issues.length > 0) {
-          setError(issues.join(" "));
-        }
-      } catch (err) {
+        const status = await getSnifferStatus();
+        updateStatus(status);
+        surfaceOptionalEnrichment(status);
+      } catch (caught) {
         const message =
-          err instanceof Error ? err.message : "Failed to retrieve sniffer status";
-        BridgeLogger.error("useNetworkSniffing", "fetchInitialStatus", message);
+          caught instanceof Error
+            ? caught.message
+            : "Failed to retrieve network monitor status";
+        BridgeLogger.error(
+          "useNetworkSniffing",
+          "fetchInitialStatus",
+          message
+        );
         setError(message);
       }
     };
 
-    fetchInitialStatus();
-  }, [updateStatus, setError]);
+    void fetchInitialStatus();
+  }, [setError, surfaceOptionalEnrichment, updateStatus]);
 
-  // Subscribe to network snapshots
   useEffect(() => {
     let unsubSnapshot: (() => void) | null = null;
     let unsubTelemetry: (() => void) | null = null;
@@ -87,40 +87,34 @@ export function useNetworkSniffing(): UseNetworkSniffingReturn {
         const snapshotSub = await subscribeToBridgeEvent<unknown>(
           "mapcn://snapshot",
           (payload) => {
-            try {
-              const parsed = NetworkSnapshotSchema.safeParse(payload);
-              if (!parsed.success) {
-                throw new Error("Invalid snapshot payload");
-              }
-              updateSnapshot(parsed.data);
-            } catch (err) {
+            const parsed = NetworkSnapshotSchema.safeParse(payload);
+            if (!parsed.success) {
               BridgeLogger.error(
                 "useNetworkSniffing",
                 "snapshotListener",
                 "Invalid snapshot payload",
-                err as Error
+                new Error(parsed.error.message)
               );
+              return;
             }
+            updateSnapshot(parsed.data);
           }
         );
 
         const telemetrySub = await subscribeToBridgeEvent<unknown>(
           "mapcn://telemetry",
           (payload) => {
-            try {
-              const parsed = NetworkSnapshotSchema.safeParse(payload);
-              if (!parsed.success) {
-                throw new Error("Invalid telemetry payload");
-              }
-              updateSnapshot(parsed.data);
-            } catch (err) {
+            const parsed = NetworkSnapshotSchema.safeParse(payload);
+            if (!parsed.success) {
               BridgeLogger.error(
                 "useNetworkSniffing",
                 "telemetryListener",
                 "Invalid telemetry payload",
-                err as Error
+                new Error(parsed.error.message)
               );
+              return;
             }
+            updateSnapshot(parsed.data);
           }
         );
 
@@ -128,129 +122,112 @@ export function useNetworkSniffing(): UseNetworkSniffingReturn {
           "mapcn://error",
           (payload) => {
             setError(payload);
-            BridgeLogger.error("useNetworkSniffing", "errorListener", payload);
+            BridgeLogger.error(
+              "useNetworkSniffing",
+              "errorListener",
+              payload
+            );
           }
         );
 
         unsubSnapshot = snapshotSub.unsubscribe;
         unsubTelemetry = telemetrySub.unsubscribe;
         unsubError = errorSub.unsubscribe;
-
-        BridgeLogger.info(
-          "useNetworkSniffing",
-          "setupListener",
-          "Event listeners configurados"
-        );
-      } catch (err) {
+      } catch (caught) {
+        const error =
+          caught instanceof Error ? caught : new Error(String(caught));
         BridgeLogger.error(
           "useNetworkSniffing",
           "setupListener",
-          "Falha ao configurar listeners",
-          err as Error
+          "Failed to configure MapCN listeners",
+          error
         );
+        setError("Failed to connect MapCN to native telemetry events");
       }
     };
 
-    setupListener();
+    void setupListener();
 
-    // Cleanup: unlisten on unmount
     return () => {
-      if (unsubSnapshot) {
-        unsubSnapshot();
-      }
-      if (unsubTelemetry) {
-        unsubTelemetry();
-      }
-      if (unsubError) {
-        unsubError();
-        BridgeLogger.info(
-          "useNetworkSniffing",
-          "cleanup",
-          "Event listeners removidos"
-        );
-      }
+      unsubSnapshot?.();
+      unsubTelemetry?.();
+      unsubError?.();
     };
-  }, [updateSnapshot, setError]);
+  }, [setError, updateSnapshot]);
 
-  // Start capture
   const start = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
       await startSniffing();
-
-      // Refresh status after starting
-      const snifferStatus = await getSnifferStatus();
-      updateStatus(snifferStatus);
-
-      const issues = validatePrerequisites(snifferStatus);
-      if (issues.length > 0) {
-        setError(issues.join(" "));
-      }
-
+      const status = await getSnifferStatus();
+      updateStatus(status);
+      surfaceOptionalEnrichment(status);
       BridgeLogger.info(
         "useNetworkSniffing",
         "start",
-        "Captura iniciada com sucesso"
+        "Network monitoring started"
       );
-    } catch (err) {
+    } catch (caught) {
       const message =
-        err instanceof Error ? err.message : "Erro ao iniciar captura";
+        caught instanceof Error
+          ? caught.message
+          : "Failed to start network monitoring";
       setError(message);
-      BridgeLogger.error("useNetworkSniffing", "start", message, err as Error);
+      BridgeLogger.error(
+        "useNetworkSniffing",
+        "start",
+        message,
+        caught instanceof Error ? caught : new Error(String(caught))
+      );
     } finally {
       setIsLoading(false);
     }
-  }, [setError, updateStatus]);
+  }, [setError, surfaceOptionalEnrichment, updateStatus]);
 
-  // Stop capture
   const stop = useCallback(async () => {
     setIsLoading(true);
 
     try {
       await stopSniffing();
-
-      // Refresh status after stopping
-      const snifferStatus = await getSnifferStatus();
-      updateStatus(snifferStatus);
-
-      const issues = validatePrerequisites(snifferStatus);
-      if (issues.length > 0) {
-        setError(issues.join(" "));
-      }
-
+      const status = await getSnifferStatus();
+      updateStatus(status);
+      surfaceOptionalEnrichment(status);
       BridgeLogger.info(
         "useNetworkSniffing",
         "stop",
-        "Captura parada com sucesso"
+        "Network monitoring stopped"
       );
-    } catch (err) {
+    } catch (caught) {
       const message =
-        err instanceof Error ? err.message : "Erro ao parar captura";
+        caught instanceof Error
+          ? caught.message
+          : "Failed to stop network monitoring";
       setError(message);
       BridgeLogger.error("useNetworkSniffing", "stop", message);
     } finally {
       setIsLoading(false);
     }
-  }, [setError, updateStatus]);
+  }, [setError, surfaceOptionalEnrichment, updateStatus]);
 
-  // Refresh status manually
   const refreshStatus = useCallback(async () => {
     try {
-      const snifferStatus = await getSnifferStatus();
-      updateStatus(snifferStatus);
-
-      const issues = validatePrerequisites(snifferStatus);
-      if (issues.length > 0) {
-        setError(issues.join(" "));
-      }
-    } catch (err) {
+      const status = await getSnifferStatus();
+      updateStatus(status);
+      surfaceOptionalEnrichment(status);
+    } catch (caught) {
       const message =
-        err instanceof Error ? err.message : "Erro ao atualizar status";
-      BridgeLogger.error("useNetworkSniffing", "refreshStatus", message);
+        caught instanceof Error
+          ? caught.message
+          : "Failed to refresh network monitor status";
+      BridgeLogger.error(
+        "useNetworkSniffing",
+        "refreshStatus",
+        message
+      );
     }
-  }, [setError, updateStatus]);
+  }, [surfaceOptionalEnrichment, updateStatus]);
 
   return {
     isRunning,
