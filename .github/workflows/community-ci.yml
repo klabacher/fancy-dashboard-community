@@ -101,6 +101,43 @@ jobs:
           echo "Full SDK/runtime compatibility is intentionally validated by FancyDashboard core CI."
           echo "Community release CI performs a second full composite build against compatibility.json before publishing."
 
+  core-quick-xml-diagnostic:
+    name: Core quick-xml dependency trace
+    needs: validate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require read-only private-core token
+        shell: bash
+        env:
+          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CORE_READ_TOKEN" || { echo "Missing FANCYDASHBOARD_CORE_READ_TOKEN"; exit 1; }
+
+      - name: Checkout FancyDashboard release candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: klabacher/FancyDashboard
+          ref: release/v1-hardening
+          path: core
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+
+      - name: Trace quick-xml reverse dependency and compatible parent versions
+        working-directory: core/apps/host/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== quick-xml 0.38.4 reverse dependency tree ==='
+          cargo tree -i quick-xml@0.38.4 --edges all
+          echo '=== quick-xml entries in the resolved graph ==='
+          cargo tree --edges all | grep -E 'quick-xml|plist|tauri|windows|cargo' || true
+
   core-release-candidate:
     name: Core RC RustSec contingency gate
     needs: validate
