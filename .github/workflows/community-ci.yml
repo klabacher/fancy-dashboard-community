@@ -1,0 +1,72 @@
+name: Community CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Repository and release contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Verify release metadata and repository hygiene
+        run: node scripts/verify-release.mjs
+
+      - name: Validate every package.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$file"
+          done < <(find packages create-fancy-community -name package.json -type f | sort)
+
+      - name: Smoke-test community scaffolder
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf packages/packs/modules/ci-scaffold
+          node create-fancy-community/bin.js ci-scaffold
+          test -f packages/packs/modules/ci-scaffold/package.json
+          test -f packages/packs/modules/ci-scaffold/src/manifest.ts
+          if node create-fancy-community/bin.js ../escape; then
+            echo "Scaffolder accepted an unsafe pack id"
+            exit 1
+          fi
+          rm -rf packages/packs/modules/ci-scaffold
+
+      - name: Reject generated artifacts and placeholder integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked=$(git ls-files | grep -E '(^|/)(node_modules|dist)/' || true)
+          if [ -n "$tracked" ]; then
+            echo "$tracked"
+            exit 1
+          fi
+          if grep -RInE '0{64}' packages/packs --include='*.ts' --include='*.json'; then
+            echo "Placeholder integrity found"
+            exit 1
+          fi
+
+      - name: Explain authoritative cross-repo build gate
+        run: |
+          echo "Full SDK/runtime compatibility is intentionally validated by FancyDashboard core CI."
+          echo "Community release CI performs a second full composite build against compatibility.json before publishing."

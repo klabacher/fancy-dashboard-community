@@ -1,0 +1,187 @@
+name: Publish Community Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-community-release
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    name: Detect Community release
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.bump.outputs.release }}
+      version: ${{ steps.bump.outputs.version }}
+      previous_version: ${{ steps.bump.outputs.previous_version }}
+      base: ${{ steps.bump.outputs.base }}
+      core_tag: ${{ steps.bump.outputs.core_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Verify Community release contract
+        run: node scripts/verify-release.mjs
+
+      - name: Detect unpublished SemVer
+        id: bump
+        run: node scripts/check-release-bump.mjs
+
+  publish:
+    name: Build, verify and publish Community assets
+    needs: release-gate
+    if: needs.release-gate.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.release-gate.outputs.version }}
+      RELEASE_BASE: ${{ needs.release-gate.outputs.base }}
+      CORE_TAG: ${{ needs.release-gate.outputs.core_tag }}
+    steps:
+      - name: Checkout Community
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Require read-only token for private core
+        shell: bash
+        env:
+          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CORE_READ_TOKEN" ]; then
+            echo "Missing FANCYDASHBOARD_CORE_READ_TOKEN. Configure a fine-grained token with Contents: Read for klabacher/FancyDashboard."
+            exit 1
+          fi
+
+      - name: Checkout exact compatible FancyDashboard core
+        uses: actions/checkout@v6
+        with:
+          repository: klabacher/FancyDashboard
+          ref: ${{ env.CORE_TAG }}
+          path: core
+          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.12.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Verify checked-out core metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const compatibility = JSON.parse(fs.readFileSync('compatibility.json', 'utf8'));
+          const core = JSON.parse(fs.readFileSync('core/package.json', 'utf8'));
+          const tauri = JSON.parse(fs.readFileSync('core/apps/host/src-tauri/tauri.conf.json', 'utf8'));
+          if (core.version !== compatibility.core.version) {
+            throw new Error(`Core package version ${core.version} != expected ${compatibility.core.version}`);
+          }
+          if (tauri.version !== compatibility.core.version) {
+            throw new Error(`Tauri version ${tauri.version} != expected ${compatibility.core.version}`);
+          }
+          NODE
+
+      - name: Compose temporary core + Community workspace
+        shell: bash
+        run: |
+          cat > pnpm-workspace.yaml <<'YAML'
+          packages:
+            - "core/apps/*"
+            - "core/packages/*"
+            - "core/packages/packs/**"
+            - "packages/packs/modules/*"
+            - "packages/packs/plugins/*"
+            - "create-fancy-community"
+          YAML
+          pnpm install --no-frozen-lockfile --lockfile=false
+
+      - name: Build core SDK/runtime first
+        run: |
+          pnpm --filter @fancydashboard/sdk build
+          pnpm --filter @fancydashboard/runtime build
+
+      - name: Build every Community pack
+        run: pnpm --filter './packages/packs/**' -r run build
+
+      - name: Run Community pack tests when provided
+        run: pnpm --filter './packages/packs/**' -r --if-present run test
+
+      - name: Build deterministic Marketplace artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t PACKS < <(find packages/packs -mindepth 3 -maxdepth 3 -name package.json -type f -print | sed 's#/package.json$##' | sort)
+          if ((${#PACKS[@]} == 0)); then
+            echo "No Community packs discovered"
+            exit 1
+          fi
+          node core/scripts/build-marketplace-artifacts.mjs --output release/community "${PACKS[@]}"
+
+      - name: Rebuild artifacts and prove reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t PACKS < <(find packages/packs -mindepth 3 -maxdepth 3 -name package.json -type f -print | sed 's#/package.json$##' | sort)
+          node core/scripts/build-marketplace-artifacts.mjs --output release/community-second "${PACKS[@]}"
+          cmp release/community/catalog.json release/community-second/catalog.json
+          diff -rq release/community/artifacts release/community-second/artifacts
+          rm -rf release/community-second
+
+      - name: Package release bundle, tutorial and SHA-256
+        run: node scripts/package-community-release.mjs --input release/community --output release/publish --version "$VERSION"
+
+      - name: Generate release notes with commit titles and descriptions
+        run: |
+          node scripts/generate-release-notes.mjs \
+            --version "$VERSION" \
+            --base "$RELEASE_BASE" \
+            --head "$GITHUB_SHA" \
+            --checksums release/publish/SHA256SUMS.txt \
+            --output release/publish/RELEASE_NOTES.md
+
+      - name: Upload build evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: fancydashboard-community-${{ env.VERSION }}
+          path: release/publish
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" \
+            "release/publish/FancyDashboard-Community-$VERSION.zip" \
+            "release/publish/catalog.json" \
+            "release/publish/compatibility.json" \
+            "release/publish/INSTALLATION.md" \
+            "release/publish/SHA256SUMS.txt" \
+            release/publish/artifacts/*.zip \
+            --target "$GITHUB_SHA" \
+            --title "FancyDashboard Community v$VERSION" \
+            --notes-file release/publish/RELEASE_NOTES.md
