@@ -8,17 +8,22 @@ import { TodoList } from "../components/TodoList";
 export default function TodoWidget(props: WidgetRuntimeProps): ReactElement {
   const { theme, cx } = useModuleTheme();
 
-  // Ensure config parsing never crashes the widget
+  // Ensure config parsing never crashes the widget.
   void TodoConfigSchema.safeParse(props.config);
 
   return (
     <div
       className={cx(
         theme.card.container,
-        "w-full h-full overflow-hidden flex flex-col"
+        "flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden"
       )}
     >
-      <div className={cx(theme.card.body, "w-full h-full p-4")}>
+      <div
+        className={cx(
+          theme.card.body,
+          "h-full w-full min-h-0 min-w-0 p-[clamp(0.35rem,3cqw,1rem)]"
+        )}
+      >
         <TodoList />
       </div>
     </div>

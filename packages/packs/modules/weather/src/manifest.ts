@@ -30,9 +30,6 @@ export const manifest = defineModulePack({
   configSchema: {
     description: "Weather widget configuration schema",
   },
-  integrity: {
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
   capabilitiesProvided: [],
 });
 

@@ -59,7 +59,10 @@ export default createModule({
     component: ActivityIcon,
   },
   globalSettings: GlobalSettings,
-  globalPermissions: [],
+  globalPermissions: [
+    { kind: "system:specs" },
+    { kind: "system:telemetry" },
+  ],
   widgets: [
     {
       id: "pc-monitor",

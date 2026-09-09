@@ -23,7 +23,7 @@ export default createModule({
     name: "Productivity Suite",
     summary: "Task widgets for quick capture and management.",
     description:
-      "Demonstration module for the V2 Module Architecture with strict typing and explicit permissions.",
+      "Responsive local task capture and management widgets sharing a durable module store.",
     author: {
       name: "FancyTeam",
       email: "dev@fancy.app",
@@ -33,7 +33,7 @@ export default createModule({
     license: "MIT",
     repository: null,
     category: "productivity",
-    tags: [],
+    tags: ["tasks", "productivity", "local"],
     tier: "community",
   },
   icon: {
@@ -41,25 +41,23 @@ export default createModule({
     component: CheckSquare,
   },
   globalSettings: GlobalSettings,
-  globalPermissions: [
-    { kind: "net:fetch", allow: ["https://api.todoist.com"] },
-  ],
+  globalPermissions: [],
   widgets: [
     {
       id: "quick-task",
       name: "QuickTask",
-      description: "Small quick-add widget.",
+      description: "Small quick-add widget synchronized with the full task manager.",
       component: QuickTaskWidget,
       settingsComponent: null,
-      permissions: [{ kind: "notification:send" }],
+      permissions: [],
       grid: {
-        minW: 2,
+        minW: 1,
         minH: 1,
         defaultW: 2,
         defaultH: 1,
-        maxW: 2,
-        maxH: 1,
-        lockAspectRatio: true,
+        maxW: 4,
+        maxH: 2,
+        lockAspectRatio: false,
       },
       config: {
         schema: QuickTaskConfigSchema,
@@ -71,17 +69,17 @@ export default createModule({
     {
       id: "full-task-manager",
       name: "FullTaskManager",
-      description: "Large widget for full task management.",
+      description: "Responsive local task manager with filters and shared quick capture.",
       component: FullTaskManagerWidget,
       settingsComponent: null,
-      permissions: [{ kind: "fs:scope", allow: ["$APP_DATA/backups/*"] }],
+      permissions: [],
       grid: {
-        minW: 4,
-        minH: 4,
+        minW: 2,
+        minH: 2,
         defaultW: 4,
         defaultH: 4,
-        maxW: 6,
-        maxH: 6,
+        maxW: 8,
+        maxH: 8,
         lockAspectRatio: false,
       },
       config: {

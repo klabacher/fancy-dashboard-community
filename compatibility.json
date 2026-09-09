@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "communityVersion": "1.0.0",
+  "core": {
+    "repository": "klabacher/FancyDashboard",
+    "version": "1.0.0",
+    "tag": "v1.0.0"
+  },
+  "toolchain": {
+    "node": "24",
+    "pnpm": "9.12.3"
+  },
+  "distribution": {
+    "formatVersion": 1,
+    "catalog": "catalog.json",
+    "artifactsDirectory": "artifacts"
+  }
+}

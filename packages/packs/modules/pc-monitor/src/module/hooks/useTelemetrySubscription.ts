@@ -25,7 +25,10 @@ export function useTelemetrySubscription(): void {
     const ensureStarted = async () => {
       try {
         if (!loadedSpecs) {
-          const specsResponse = await SystemActions.getSpecs.invoke();
+          const specsResponse = await SystemActions.getSpecs.invoke(
+            undefined,
+            "pc-monitor"
+          );
           if (specsResponse.success && specsResponse.data) {
             const data = specsResponse.data;
             const mappedSpecs: SystemSpecs = {
@@ -46,7 +49,9 @@ export function useTelemetrySubscription(): void {
             (payload) => {
               updateFromTelemetry(payload);
               setConnected(true);
-            }
+            },
+            "pc-monitor",
+            "system:telemetry"
           );
           unsubscribeTelemetry = subscription.unsubscribe;
         }

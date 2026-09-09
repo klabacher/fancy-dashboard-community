@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 
+import { useWidgetViewport } from "@fancydashboard/sdk";
 import { useTodoStore } from "../store";
 import { TaskItem } from "./TaskItem";
 import { AddTaskInput } from "./AddTaskInput";
@@ -19,6 +20,7 @@ import type { Task } from "../types";
 type FilterType = "all" | "active" | "completed";
 
 export const TodoList: React.FC = () => {
+  const viewport = useWidgetViewport();
   const {
     tasks,
     selectedTaskId,
@@ -36,6 +38,13 @@ export const TodoList: React.FC = () => {
   const [filter, setFilter] = useState<FilterType>("all");
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
+  const isMicro = viewport.size === "micro";
+  const isCompact =
+    isMicro ||
+    viewport.size === "compact" ||
+    viewport.isNarrow ||
+    viewport.isShort;
+
   useEffect(() => {
     void initialize();
   }, [initialize]);
@@ -45,24 +54,24 @@ export const TodoList: React.FC = () => {
     try {
       const date = parseISO(filterDate);
       if (!isValid(date)) return null;
-      return format(date, "MMMM d, yyyy");
+      return format(date, isCompact ? "MMM d" : "MMMM d, yyyy");
     } catch {
       return null;
     }
-  }, [filterDate]);
+  }, [filterDate, isCompact]);
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
     if (filterDate) {
-      result = result.filter((t) => t.dueDate === filterDate);
+      result = result.filter((task) => task.dueDate === filterDate);
     }
 
     switch (filter) {
       case "active":
-        return result.filter((t) => !t.completed);
+        return result.filter((task) => !task.completed);
       case "completed":
-        return result.filter((t) => t.completed);
+        return result.filter((task) => task.completed);
       default:
         return result;
     }
@@ -71,8 +80,8 @@ export const TodoList: React.FC = () => {
   const stats = useMemo(
     () => ({
       total: tasks.length,
-      active: tasks.filter((t) => !t.completed).length,
-      completed: tasks.filter((t) => t.completed).length,
+      active: tasks.filter((task) => !task.completed).length,
+      completed: tasks.filter((task) => task.completed).length,
     }),
     [tasks]
   );
@@ -85,131 +94,150 @@ export const TodoList: React.FC = () => {
   };
 
   const taskToDeleteTitle =
-    tasks.find((t) => t.id === taskToDelete)?.title || "";
+    tasks.find((task) => task.id === taskToDelete)?.title || "";
+
+  const filterItems = [
+    { key: "all", label: "All", count: stats.total },
+    { key: "active", label: isMicro ? "Open" : "Active", count: stats.active },
+    { key: "completed", label: "Done", count: stats.completed },
+  ] as const;
 
   return (
-    <div className="flex flex-col h-full">
-      <AnimatePresence>
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      <AnimatePresence initial={false}>
         {filterDate && filterDateDisplay && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
+            initial={viewport.reducedMotion ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-3 overflow-hidden"
+            exit={{ opacity: 0, height: viewport.reducedMotion ? "auto" : 0 }}
+            className="mb-[clamp(0.25rem,1.5cqh,0.75rem)] overflow-hidden"
           >
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-blue-500" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Tasks for {filterDateDisplay}
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-[clamp(0.4rem,2cqw,0.75rem)] py-[clamp(0.3rem,1.5cqh,0.5rem)] dark:border-blue-800 dark:bg-blue-900/30">
+              <div className="flex min-w-0 items-center gap-2">
+                <Calendar
+                  size={isCompact ? 14 : 16}
+                  className="shrink-0 text-blue-500"
+                  aria-hidden="true"
+                />
+                <span className="truncate text-[clamp(0.65rem,3cqw,0.875rem)] font-medium text-blue-700 dark:text-blue-300">
+                  {isCompact ? filterDateDisplay : `Tasks for ${filterDateDisplay}`}
                 </span>
               </div>
               <motion.button
                 type="button"
                 onClick={() => setFilterDate(null)}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-1 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800 text-blue-500"
+                whileHover={viewport.reducedMotion ? undefined : { scale: 1.08 }}
+                whileTap={viewport.reducedMotion ? undefined : { scale: 0.94 }}
+                className="shrink-0 rounded-lg p-1 text-blue-500 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-800"
+                aria-label="Clear date filter"
               >
-                <X size={14} />
+                <X size={14} aria-hidden="true" />
               </motion.button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ListTodo size={20} className="text-blue-500" />
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+      <div className="mb-[clamp(0.25rem,1.6cqh,0.75rem)] flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-[clamp(0.3rem,2cqw,0.5rem)]">
+          <ListTodo
+            size={isMicro ? 16 : 20}
+            className="shrink-0 text-blue-500"
+            aria-hidden="true"
+          />
+          <h2 className="truncate text-[clamp(0.8rem,4cqw,1.125rem)] font-semibold text-zinc-900 dark:text-zinc-100">
             Tasks
           </h2>
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400">
-            {stats.active} active
-          </span>
+          {!isMicro && (
+            <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[clamp(0.55rem,2.6cqw,0.75rem)] font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
+              {stats.active} active
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800">
-        {(
-          [
-            { key: "all", label: "All", count: stats.total },
-            { key: "active", label: "Active", count: stats.active },
-            { key: "completed", label: "Done", count: stats.completed },
-          ] as const
-        ).map(({ key, label, count }) => (
+      <div
+        className="mb-[clamp(0.3rem,1.8cqh,0.75rem)] flex min-w-0 items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800"
+        role="group"
+        aria-label="Task filters"
+      >
+        {filterItems.map(({ key, label, count }) => (
           <button
             key={key}
+            type="button"
             onClick={() => setFilter(key)}
-            className={
-              `flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ` +
-              `${
-                filter === key
-                  ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
-                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-              }`
-            }
+            aria-pressed={filter === key}
+            className={`flex min-w-0 flex-1 items-center justify-center gap-[clamp(0.15rem,1cqw,0.375rem)] rounded-lg px-[clamp(0.25rem,2cqw,0.75rem)] py-[clamp(0.3rem,1.5cqh,0.375rem)] text-[clamp(0.55rem,2.7cqw,0.75rem)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              filter === key
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+            }`}
           >
-            {label}
-            <span className="opacity-60">{count}</span>
+            <span className="truncate">{label}</span>
+            {!isMicro && <span className="shrink-0 opacity-60">{count}</span>}
           </button>
         ))}
       </div>
 
       <AddTaskInput onAdd={addTask} />
 
-      <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+      <div className="min-h-0 flex-1 space-y-[clamp(0.25rem,1.3cqh,0.5rem)] overflow-y-auto overscroll-contain pr-px">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 size={24} className="text-blue-500 animate-spin" />
-            <p className="text-sm text-zinc-400 mt-2">Loading tasks...</p>
+          <div className="flex h-full min-h-16 flex-col items-center justify-center py-[clamp(0.75rem,5cqh,3rem)]">
+            <Loader2
+              size={isCompact ? 20 : 24}
+              className={viewport.reducedMotion ? "text-blue-500" : "animate-spin text-blue-500"}
+              aria-hidden="true"
+            />
+            {!isMicro && (
+              <p className="mt-2 text-[clamp(0.65rem,3cqw,0.875rem)] text-zinc-400">
+                Loading tasks...
+              </p>
+            )}
           </div>
         ) : (
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="popLayout" initial={false}>
             {filteredTasks.length === 0 ? (
               <motion.div
-                initial={{ opacity: 0 }}
+                initial={viewport.reducedMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-12 text-center"
+                className="flex h-full min-h-16 flex-col items-center justify-center py-[clamp(0.5rem,4cqh,3rem)] text-center"
               >
-                {filter === "all" ? (
+                {filter === "active" ? (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
-                      <Circle
-                        size={24}
-                        className="text-zinc-300 dark:text-zinc-600"
+                    <div className="mb-[clamp(0.3rem,2cqh,0.75rem)] flex h-[clamp(2rem,16cqw,3rem)] w-[clamp(2rem,16cqw,3rem)] items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                      <CheckCircle2
+                        size={isCompact ? 18 : 24}
+                        className="text-green-500"
+                        aria-hidden="true"
                       />
                     </div>
-                    <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500">
-                      No tasks yet
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">
-                      Add your first task above
-                    </p>
-                  </>
-                ) : filter === "active" ? (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
-                      <CheckCircle2 size={24} className="text-green-500" />
-                    </div>
-                    <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500">
+                    <p className="text-[clamp(0.65rem,3cqw,0.875rem)] font-medium text-zinc-400 dark:text-zinc-500">
                       All caught up!
                     </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">
-                      No active tasks remaining
-                    </p>
+                    {!isCompact && (
+                      <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
+                        No active tasks remaining
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                    <div className="mb-[clamp(0.3rem,2cqh,0.75rem)] flex h-[clamp(2rem,16cqw,3rem)] w-[clamp(2rem,16cqw,3rem)] items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
                       <Circle
-                        size={24}
+                        size={isCompact ? 18 : 24}
                         className="text-zinc-300 dark:text-zinc-600"
+                        aria-hidden="true"
                       />
                     </div>
-                    <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500">
-                      No completed tasks
+                    <p className="text-[clamp(0.65rem,3cqw,0.875rem)] font-medium text-zinc-400 dark:text-zinc-500">
+                      {filter === "completed" ? "No completed tasks" : "No tasks yet"}
                     </p>
+                    {!isCompact && filter === "all" && (
+                      <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
+                        Add your first task above
+                      </p>
+                    )}
                   </>
                 )}
               </motion.div>

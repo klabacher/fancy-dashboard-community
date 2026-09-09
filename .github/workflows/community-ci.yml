@@ -1,0 +1,103 @@
+name: Community CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Repository and release contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 9.12.3
+
+      - name: Verify release metadata and repository hygiene
+        run: node scripts/verify-release.mjs
+
+      - name: Validate every package.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$file"
+          done < <(find packages create-fancy-community -name package.json -type f | sort)
+
+      - name: Smoke-test Community scaffolder
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf packages/packs/modules/ci-scaffold
+          node create-fancy-community/bin.js ci-scaffold
+          test -f packages/packs/modules/ci-scaffold/package.json
+          test -f packages/packs/modules/ci-scaffold/src/manifest.ts
+          if node create-fancy-community/bin.js ../escape; then
+            echo "Scaffolder accepted an unsafe pack id"
+            exit 1
+          fi
+          rm -rf packages/packs/modules/ci-scaffold
+
+      - name: Reject generated artifacts and placeholder integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked=$(git ls-files | grep -E '(^|/)(node_modules|dist)/' || true)
+          if [ -n "$tracked" ]; then
+            echo "$tracked"
+            exit 1
+          fi
+          if grep -RInE '0{64}' packages/packs --include='*.ts' --include='*.json'; then
+            echo "Placeholder integrity found"
+            exit 1
+          fi
+
+      - name: Smoke-test release gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/community-release-gate.txt
+          GITHUB_OUTPUT=/tmp/community-release-gate.txt node scripts/check-release-bump.mjs
+          grep -Eq '^release=(true|false)$' /tmp/community-release-gate.txt
+          grep -q '^version=1.0.0$' /tmp/community-release-gate.txt
+          grep -q '^core_tag=v1.0.0$' /tmp/community-release-gate.txt
+
+      - name: Smoke-test deterministic packager and release notes
+        shell: bash
+        env:
+          GITHUB_REPOSITORY: klabacher/fancy-dashboard-community
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/community-release-smoke
+          mkdir -p /tmp/community-release-smoke/input/artifacts /tmp/community-release-smoke/output
+          printf '{"id":"ci","version":"1.0.0","name":"CI","summary":"smoke","artifact":"ci-1.0.0.zip","integrity":"%064d"}\n' 1 \
+            | node -e 'const fs=require("fs"); const [line]=fs.readFileSync(0,"utf8").trim().split("\n"); fs.writeFileSync(process.argv[1], JSON.stringify([JSON.parse(line)], null, 2)+"\n")' /tmp/community-release-smoke/input/catalog.json
+          printf 'community-smoke' > /tmp/community-release-smoke/input/artifacts/ci-1.0.0.zip
+          node -e 'const fs=require("fs"),crypto=require("crypto");const p="/tmp/community-release-smoke/input/catalog.json";const c=JSON.parse(fs.readFileSync(p));c[0].integrity=crypto.createHash("sha256").update(fs.readFileSync("/tmp/community-release-smoke/input/artifacts/ci-1.0.0.zip")).digest("hex");fs.writeFileSync(p,JSON.stringify(c,null,2)+"\n")'
+          node scripts/package-community-release.mjs --input /tmp/community-release-smoke/input --output /tmp/community-release-smoke/output --version 1.0.0
+          test -f /tmp/community-release-smoke/output/FancyDashboard-Community-1.0.0.zip
+          test -f /tmp/community-release-smoke/output/SHA256SUMS.txt
+          test -f /tmp/community-release-smoke/output/INSTALLATION.md
+          node scripts/generate-release-notes.mjs --version 1.0.0 --base "$(git rev-parse HEAD^)" --head HEAD --checksums /tmp/community-release-smoke/output/SHA256SUMS.txt --output /tmp/community-release-smoke/output/RELEASE_NOTES.md
+          grep -q 'FancyDashboard Community v1.0.0' /tmp/community-release-smoke/output/RELEASE_NOTES.md
+          grep -q 'SHA-256' /tmp/community-release-smoke/output/RELEASE_NOTES.md

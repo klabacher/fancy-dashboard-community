@@ -48,13 +48,18 @@ export default createModule({
       github: null,
     },
     website: null,
+    license: "MIT",
+    repository: "https://github.com/klabacher/fancy-dashboard-community",
+    category: "monitoring",
+    tags: ["network", "telemetry", "visualization"],
+    tier: "community",
   },
   icon: {
     type: "react-icon",
     component: GlobeIcon,
   },
   globalSettings: GlobalSettings,
-  globalPermissions: [],
+  globalPermissions: [{ kind: "network:capture" }],
   widgets: [
     {
       id: "mapcn-compact",

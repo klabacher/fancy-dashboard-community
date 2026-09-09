@@ -1,11 +1,12 @@
 // ============================================================================
 // CalendarWidget Main Component
-// Responsive calendar with size-aware rendering
+// Container-responsive calendar with safe layout degradation
 // ============================================================================
 
 import { memo, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Settings, AlertTriangle } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertTriangle, Settings } from "lucide-react";
+import { useWidgetViewport } from "@fancydashboard/sdk";
 import type { CalendarConfig } from "./types";
 import { DEFAULT_CALENDAR_CONFIG } from "./types";
 import { useCalendarStore } from "./store";
@@ -15,10 +16,6 @@ import { CalendarCompact } from "./components/CalendarCompact";
 import { CalendarExpanded } from "./components/CalendarExpanded";
 import { CalendarSettings } from "./components/CalendarSettings";
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface CalendarWidgetProps {
   config: CalendarConfig;
   onConfigChange?: (config: CalendarConfig) => void;
@@ -26,20 +23,56 @@ export interface CalendarWidgetProps {
 
 type WidgetSize = "compact-1x1" | "compact-1x2" | "standard" | "expanded";
 
-// ============================================================================
-// Main Widget Component
-// ============================================================================
+function resolveWidgetSize(
+  configuredSize: WidgetSize,
+  width: number,
+  height: number,
+  aspectRatio: number
+): WidgetSize {
+  // Before the first ResizeObserver measurement, preserve the persisted choice.
+  if (width <= 0 || height <= 0) return configuredSize;
+
+  // The container always wins over a persisted layout. This prevents a widget
+  // resized from 4x3 to 1x1 from trying to render the expanded calendar.
+  if (width < 180 || height < 120) return "compact-1x1";
+
+  if (width < 280 || height < 180) {
+    return height >= 210 && aspectRatio < 0.9 ? "compact-1x2" : "compact-1x1";
+  }
+
+  if (width < 360 || height < 240) {
+    return aspectRatio < 0.9 && height >= 280 ? "compact-1x2" : "standard";
+  }
+
+  if (configuredSize === "expanded" && (width < 520 || height < 320)) {
+    return "standard";
+  }
+
+  return configuredSize;
+}
 
 export const CalendarWidget = memo(function CalendarWidget({
   config,
   onConfigChange,
 }: CalendarWidgetProps) {
-  // Determine widget size from config layout
-  const widgetSize = useMemo((): WidgetSize => {
-    return config?.layout ?? "standard";
-  }, [config?.layout]);
+  const viewport = useWidgetViewport();
 
-  // Merge config with defaults
+  const configuredSize = useMemo<WidgetSize>(
+    () => config?.layout ?? "standard",
+    [config?.layout]
+  );
+
+  const widgetSize = useMemo(
+    () =>
+      resolveWidgetSize(
+        configuredSize,
+        viewport.width,
+        viewport.height,
+        viewport.aspectRatio
+      ),
+    [configuredSize, viewport.width, viewport.height, viewport.aspectRatio]
+  );
+
   const mergedConfig = useMemo(
     () => ({
       ...DEFAULT_CALENDAR_CONFIG,
@@ -60,70 +93,86 @@ export const CalendarWidget = memo(function CalendarWidget({
     [config]
   );
 
-  // Settings panel state
   const { isSettingsOpen, openSettings, closeSettings } = useCalendarStore();
-
-  // Initialize todo store on mount
-  const initializeTodo = useTodoStore((s) => s.initialize);
-  const isLoading = useTodoStore((s) => s.isLoading);
-
+  const initializeTodo = useTodoStore((state) => state.initialize);
+  const isLoading = useTodoStore((state) => state.isLoading);
   const [initError, setInitError] = useState<Error | null>(null);
 
   useEffect(() => {
     initializeTodo().catch(setInitError);
   }, [initializeTodo]);
 
-  // Config change handler
   const handleConfigChange = (newConfig: CalendarConfig) => {
     onConfigChange?.(newConfig);
   };
 
+  const transition = viewport.reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const };
+
   if (initError) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-red-50/90 dark:bg-red-950/90 backdrop-blur-2xl rounded-2xl p-4 text-center border border-red-200 dark:border-red-900">
-        <AlertTriangle className="text-red-500 mb-2" size={24} />
-        <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to load calendar</p>
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">{initError.message}</p>
+      <div
+        className="flex h-full w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-red-300/15 bg-red-950/45 p-[clamp(0.65rem,4cqw,1rem)] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-2xl"
+        role="alert"
+      >
+        <AlertTriangle className="mb-2 text-red-300" size={24} aria-hidden="true" />
+        <p className="text-sm font-medium text-red-100">Failed to load calendar</p>
+        <p className="mt-1 max-w-full truncate text-xs text-red-200/65">
+          {initError.message}
+        </p>
       </div>
     );
   }
 
-  // Loading state
   if (isLoading) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl rounded-2xl">
+      <div
+        className="flex h-full w-full items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/45 backdrop-blur-2xl"
+        aria-live="polite"
+        aria-label="Loading calendar"
+      >
         <motion.div
-          animate={{ rotate: 360 }}
+          animate={viewport.reducedMotion ? undefined : { rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"
+          className="h-6 w-6 rounded-full border-2 border-white/70 border-t-transparent"
+          aria-hidden="true"
         />
       </div>
     );
   }
 
+  const showSettingsButton =
+    widgetSize !== "expanded" && widgetSize !== "compact-1x1" && !viewport.isShort;
+
   return (
-    <div className="relative w-full h-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl overflow-hidden border border-zinc-200/50 dark:border-zinc-700/50">
-      {/* Settings Button (for non-expanded views) */}
-      {widgetSize !== "expanded" && widgetSize !== "compact-1x1" && (
+    <section
+      className="relative h-full w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/45 text-white shadow-[0_18px_45px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl"
+      data-calendar-layout={widgetSize}
+      aria-label="Calendar widget"
+    >
+      {showSettingsButton && (
         <motion.button
+          type="button"
           onClick={openSettings}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="absolute top-2 right-2 z-10 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-zinc-100/80 dark:bg-zinc-800/80 backdrop-blur-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+          whileHover={viewport.reducedMotion ? undefined : { scale: 1.05 }}
+          whileTap={viewport.reducedMotion ? undefined : { scale: 0.96 }}
+          className="absolute right-2 top-2 z-10 flex min-h-10 min-w-10 items-center justify-center rounded-xl border border-white/10 bg-black/25 p-2 text-white/65 backdrop-blur-xl transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          aria-label="Open calendar settings"
         >
-          <Settings size={16} />
+          <Settings size={16} aria-hidden="true" />
         </motion.button>
       )}
 
-      {/* Responsive Content */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={!viewport.reducedMotion}>
         {widgetSize === "compact-1x1" && (
           <motion.div
             key="compact-1x1"
-            initial={{ opacity: 0 }}
+            initial={viewport.reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full"
+            exit={viewport.reducedMotion ? undefined : { opacity: 0 }}
+            transition={transition}
+            className="h-full w-full"
           >
             <CalendarCompact config={mergedConfig} size="1x1" />
           </motion.div>
@@ -132,10 +181,11 @@ export const CalendarWidget = memo(function CalendarWidget({
         {widgetSize === "compact-1x2" && (
           <motion.div
             key="compact-1x2"
-            initial={{ opacity: 0 }}
+            initial={viewport.reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full"
+            exit={viewport.reducedMotion ? undefined : { opacity: 0 }}
+            transition={transition}
+            className="h-full w-full"
           >
             <CalendarCompact config={mergedConfig} size="1x2" />
           </motion.div>
@@ -144,10 +194,11 @@ export const CalendarWidget = memo(function CalendarWidget({
         {widgetSize === "standard" && (
           <motion.div
             key="standard"
-            initial={{ opacity: 0 }}
+            initial={viewport.reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full p-3"
+            exit={viewport.reducedMotion ? undefined : { opacity: 0 }}
+            transition={transition}
+            className="h-full w-full p-[clamp(0.4rem,2.5cqw,0.75rem)]"
           >
             <CalendarGrid config={mergedConfig} />
           </motion.div>
@@ -156,10 +207,11 @@ export const CalendarWidget = memo(function CalendarWidget({
         {widgetSize === "expanded" && (
           <motion.div
             key="expanded"
-            initial={{ opacity: 0 }}
+            initial={viewport.reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full"
+            exit={viewport.reducedMotion ? undefined : { opacity: 0 }}
+            transition={transition}
+            className="h-full w-full"
           >
             <CalendarExpanded
               config={mergedConfig}
@@ -169,8 +221,7 @@ export const CalendarWidget = memo(function CalendarWidget({
         )}
       </AnimatePresence>
 
-      {/* Settings Panel Overlay */}
-      <AnimatePresence>
+      <AnimatePresence initial={!viewport.reducedMotion}>
         {isSettingsOpen && (
           <CalendarSettings
             config={mergedConfig}
@@ -179,7 +230,7 @@ export const CalendarWidget = memo(function CalendarWidget({
           />
         )}
       </AnimatePresence>
-    </div>
+    </section>
   );
 });
 
