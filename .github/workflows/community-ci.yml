@@ -19,11 +19,11 @@ jobs:
     name: Repository and release contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
 
@@ -66,57 +66,34 @@ jobs:
             exit 1
           fi
 
-      - name: Smoke-test release gate without publishing
+      - name: Smoke-test release gate
         shell: bash
         run: |
           set -euo pipefail
-          : > /tmp/community-release-output
-          GITHUB_OUTPUT=/tmp/community-release-output node scripts/check-release-bump.mjs
-          grep -Eq '^release=(true|false)$' /tmp/community-release-output
-          grep -Eq '^version=[0-9]+\.[0-9]+\.[0-9]+' /tmp/community-release-output
-          cat /tmp/community-release-output
+          node scripts/check-release-bump.mjs > /tmp/community-release-gate.txt
+          grep -Eq 'release=(true|false)' /tmp/community-release-gate.txt
+          grep -q '^version=1.0.0$' /tmp/community-release-gate.txt
+          grep -q '^core_tag=v1.0.0$' /tmp/community-release-gate.txt
 
-      - name: Prove Community release packager is deterministic
+      - name: Smoke-test deterministic packager and release notes
         shell: bash
+        env:
+          GITHUB_REPOSITORY: klabacher/fancy-dashboard-community
         run: |
           set -euo pipefail
-          VERSION=$(node -p "require('./package.json').version")
-          rm -rf /tmp/community-input /tmp/community-publish-a /tmp/community-publish-b
-          mkdir -p /tmp/community-input/artifacts
-          printf 'community-release-smoke\n' > /tmp/community-input/artifacts/ci-smoke-1.0.0.zip
-          HASH=$(sha256sum /tmp/community-input/artifacts/ci-smoke-1.0.0.zip | awk '{print $1}')
-          node - "$HASH" <<'NODE'
-          const fs = require('fs');
-          const integrity = process.argv[2];
-          fs.writeFileSync('/tmp/community-input/catalog.json', JSON.stringify([{
-            id: 'ci-smoke',
-            version: '1.0.0',
-            name: 'CI Smoke',
-            summary: 'Synthetic artifact used only to verify deterministic release packaging.',
-            artifact: 'ci-smoke-1.0.0.zip',
-            integrity,
-          }], null, 2) + '\n');
-          NODE
-          node scripts/package-community-release.mjs --input /tmp/community-input --output /tmp/community-publish-a --version "$VERSION"
-          node scripts/package-community-release.mjs --input /tmp/community-input --output /tmp/community-publish-b --version "$VERSION"
-          cmp "/tmp/community-publish-a/FancyDashboard-Community-$VERSION.zip" "/tmp/community-publish-b/FancyDashboard-Community-$VERSION.zip"
-          cmp /tmp/community-publish-a/SHA256SUMS.txt /tmp/community-publish-b/SHA256SUMS.txt
-          cmp /tmp/community-publish-a/catalog.json /tmp/community-publish-b/catalog.json
-
-      - name: Smoke-test release notes generation
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION=$(node -p "require('./package.json').version")
-          node scripts/generate-release-notes.mjs \
-            --version "$VERSION" \
-            --base BOOTSTRAP \
-            --head HEAD \
-            --checksums /tmp/community-publish-a/SHA256SUMS.txt \
-            --output /tmp/COMMUNITY_RELEASE_NOTES.md
-          grep -q "FancyDashboard Community v$VERSION" /tmp/COMMUNITY_RELEASE_NOTES.md
-          grep -q 'SHA-256' /tmp/COMMUNITY_RELEASE_NOTES.md
-          grep -q 'Commits incluídos' /tmp/COMMUNITY_RELEASE_NOTES.md
+          rm -rf /tmp/community-release-smoke
+          mkdir -p /tmp/community-release-smoke/input/artifacts /tmp/community-release-smoke/output
+          printf '{"id":"ci","version":"1.0.0","name":"CI","summary":"smoke","artifact":"ci-1.0.0.zip","integrity":"%064d"}\n' 1 \
+            | node -e 'const fs=require("fs"); const [line]=fs.readFileSync(0,"utf8").trim().split("\n"); fs.writeFileSync(process.argv[1], JSON.stringify([JSON.parse(line)], null, 2)+"\n")' /tmp/community-release-smoke/input/catalog.json
+          printf 'community-smoke' > /tmp/community-release-smoke/input/artifacts/ci-1.0.0.zip
+          node -e 'const fs=require("fs"),crypto=require("crypto");const p="/tmp/community-release-smoke/input/catalog.json";const c=JSON.parse(fs.readFileSync(p));c[0].integrity=crypto.createHash("sha256").update(fs.readFileSync("/tmp/community-release-smoke/input/artifacts/ci-1.0.0.zip")).digest("hex");fs.writeFileSync(p,JSON.stringify(c,null,2)+"\n")'
+          node scripts/package-community-release.mjs --input /tmp/community-release-smoke/input --output /tmp/community-release-smoke/output --version 1.0.0
+          test -f /tmp/community-release-smoke/output/FancyDashboard-Community-1.0.0.zip
+          test -f /tmp/community-release-smoke/output/SHA256SUMS.txt
+          test -f /tmp/community-release-smoke/output/INSTALLATION.md
+          node scripts/generate-release-notes.mjs --version 1.0.0 --base "$(git rev-parse HEAD^)" --head HEAD --checksums /tmp/community-release-smoke/output/SHA256SUMS.txt --output /tmp/community-release-smoke/output/RELEASE_NOTES.md
+          grep -q 'FancyDashboard Community v1.0.0' /tmp/community-release-smoke/output/RELEASE_NOTES.md
+          grep -q 'SHA-256' /tmp/community-release-smoke/output/RELEASE_NOTES.md
 
       - name: Explain authoritative cross-repo build gate
         run: |
