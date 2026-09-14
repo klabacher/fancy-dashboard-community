@@ -19,8 +19,6 @@ import {
   type LauncherGrid3x3Config,
 } from "./Launcher.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
-
 const LauncherWidget = lazy(() => import("./LauncherWidget"));
 const SingleIcon = lazy(() => import("./widgets/SingleIcon"));
 const LauncherGrid = lazy(() => import("./widgets/LauncherGrid"));
@@ -49,7 +47,7 @@ export default createModule({
     type: "react-icon",
     component: RocketIcon,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {

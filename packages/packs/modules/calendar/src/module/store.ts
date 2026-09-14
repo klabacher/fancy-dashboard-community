@@ -22,7 +22,7 @@ import {
   subWeeks,
   format,
 } from "date-fns";
-import type { Task } from "../todo/types";
+import type { Task } from "./taskBridge";
 import type { CalendarView, DayData } from "./types";
 
 // ============================================================================
@@ -154,8 +154,8 @@ export const useCalendarStore = create<CalendarStore>()(
         view: state.view,
         // Don't persist currentDate or selectedDate
       }),
-    }
-  )
+    },
+  ),
 );
 
 // ============================================================================
@@ -181,7 +181,7 @@ export function generateCalendarGrid(
   currentDate: Date,
   selectedDate: Date | null,
   tasks: Task[],
-  startWeekOnMonday: boolean = true
+  startWeekOnMonday: boolean = true,
 ): DayData[] {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -221,7 +221,7 @@ export function generateWeekGrid(
   currentDate: Date,
   selectedDate: Date | null,
   tasks: Task[],
-  startWeekOnMonday: boolean = true
+  startWeekOnMonday: boolean = true,
 ): DayData[] {
   const weekStartsOn = startWeekOnMonday ? 1 : 0;
 
@@ -264,7 +264,7 @@ export function formatMonthYear(date: Date): string {
 
 export function formatWeekRange(
   date: Date,
-  startWeekOnMonday: boolean
+  startWeekOnMonday: boolean,
 ): string {
   const weekStartsOn = startWeekOnMonday ? 1 : 0;
   const weekStart = startOfWeek(date, { weekStartsOn });
@@ -274,7 +274,7 @@ export function formatWeekRange(
 
 export function getDayNames(
   startWeekOnMonday: boolean,
-  short: boolean = true
+  short: boolean = true,
 ): string[] {
   const days = short
     ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

@@ -9,7 +9,6 @@ import {
   type ClockConfig,
 } from "./Clock.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const ClockWidget = lazy(() => import("./widgets/Clock"));
 const WeatherClockWidget = lazy(() => import("./widgets/WeatherClock"));
 
@@ -37,7 +36,7 @@ export default createModule({
     type: "react-icon",
     component: ClockIcon,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {

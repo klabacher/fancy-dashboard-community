@@ -4,6 +4,13 @@ import type { PluginManifest } from "@fancydashboard/sdk/bridge";
 import { BridgeLogger, createPluginInvoke } from "@fancydashboard/sdk/bridge";
 
 import type { Priority, Task, TodoStore } from "./types";
+import {
+  broadcastTaskChanges,
+  createTaskSaveQueue,
+  subscribeToTaskChanges,
+  subscribeToTaskCommands,
+  subscribeToTaskRequests,
+} from "./taskSync";
 
 // ============================================================================
 // Plugin Manifest for Bridge
@@ -14,7 +21,7 @@ const manifest: PluginManifest = {
   name: "Todo Widget",
   version: "1.0.0",
   description: "Task management with Rust persistence",
-  permissions: ["bridge:invoke"],
+  permissions: ["bridge:invoke", "store:read", "store:write"],
 };
 
 const pluginInvoke = createPluginInvoke(manifest);
@@ -46,7 +53,7 @@ const TodoPersistence = {
         BridgeLogger.info(
           manifest.id,
           "loadTasks",
-          `Loaded ${response.data.data?.length ?? 0} tasks`
+          `Loaded ${response.data.data?.length ?? 0} tasks`,
         );
         return response.data.data ?? [];
       }
@@ -55,7 +62,7 @@ const TodoPersistence = {
       BridgeLogger.warn(
         manifest.id,
         "loadTasks",
-        "Bridge unavailable, using localStorage"
+        "Bridge unavailable, using localStorage",
       );
       return TodoPersistence.loadFromLocalStorage();
     } catch (err) {
@@ -63,7 +70,7 @@ const TodoPersistence = {
       BridgeLogger.warn(
         manifest.id,
         "loadTasks",
-        `Falling back to localStorage: ${errorMsg}`
+        `Falling back to localStorage: ${errorMsg}`,
       );
       return TodoPersistence.loadFromLocalStorage();
     }
@@ -73,14 +80,14 @@ const TodoPersistence = {
     try {
       const response = await pluginInvoke<{ tasks: Task[] }, ApiResponse<null>>(
         "todo_save_tasks",
-        { tasks }
+        { tasks },
       );
 
       if (response.success && response.data?.status === "success") {
         BridgeLogger.info(
           manifest.id,
           "saveTasks",
-          `Saved ${tasks.length} tasks`
+          `Saved ${tasks.length} tasks`,
         );
         return;
       }
@@ -89,7 +96,7 @@ const TodoPersistence = {
       BridgeLogger.warn(
         manifest.id,
         "saveTasks",
-        "Bridge unavailable, using localStorage"
+        "Bridge unavailable, using localStorage",
       );
       TodoPersistence.saveToLocalStorage(tasks);
     } catch (err) {
@@ -97,7 +104,7 @@ const TodoPersistence = {
       BridgeLogger.warn(
         manifest.id,
         "saveTasks",
-        `Falling back to localStorage: ${errorMsg}`
+        `Falling back to localStorage: ${errorMsg}`,
       );
       TodoPersistence.saveToLocalStorage(tasks);
     }
@@ -128,13 +135,28 @@ const TodoPersistence = {
     try {
       localStorage.setItem(
         "todo-widget-storage",
-        JSON.stringify({ state: { tasks } })
+        JSON.stringify({ state: { tasks } }),
       );
     } catch {
       // Ignore storage errors
     }
   },
 };
+
+const taskSaveQueue = createTaskSaveQueue((tasks) =>
+  TodoPersistence.saveTasks(tasks),
+);
+
+function persistAndBroadcast(tasks: Task[]): void {
+  void taskSaveQueue.enqueue(tasks).catch((error: unknown) => {
+    BridgeLogger.error(
+      manifest.id,
+      "saveTasks",
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+  broadcastTaskChanges(tasks);
+}
 
 // ============================================================================
 // Helpers
@@ -166,6 +188,7 @@ export const useTodoStore = create<TodoStore>()((set) => ({
     set({ isLoading: true });
     const tasks = await TodoPersistence.loadTasks();
     set({ tasks, isLoading: false });
+    broadcastTaskChanges(tasks);
   },
 
   addTask: (taskData) => {
@@ -178,7 +201,7 @@ export const useTodoStore = create<TodoStore>()((set) => ({
     };
     set((state) => {
       const newTasks = [newTask, ...state.tasks];
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return { tasks: newTasks };
     });
   },
@@ -188,9 +211,9 @@ export const useTodoStore = create<TodoStore>()((set) => ({
       const newTasks = state.tasks.map((task) =>
         task.id === id
           ? { ...task, ...updates, updatedAt: new Date().toISOString() }
-          : task
+          : task,
       );
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return { tasks: newTasks };
     });
   },
@@ -198,7 +221,7 @@ export const useTodoStore = create<TodoStore>()((set) => ({
   deleteTask: (id) => {
     set((state) => {
       const newTasks = state.tasks.filter((task) => task.id !== id);
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return {
         tasks: newTasks,
         selectedTaskId:
@@ -216,9 +239,9 @@ export const useTodoStore = create<TodoStore>()((set) => ({
               completed: !task.completed,
               updatedAt: new Date().toISOString(),
             }
-          : task
+          : task,
       );
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return { tasks: newTasks };
     });
   },
@@ -232,9 +255,9 @@ export const useTodoStore = create<TodoStore>()((set) => ({
               priority: cyclePriority(task.priority),
               updatedAt: new Date().toISOString(),
             }
-          : task
+          : task,
       );
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return { tasks: newTasks };
     });
   },
@@ -248,7 +271,7 @@ export const useTodoStore = create<TodoStore>()((set) => ({
       const tasks = [...state.tasks];
       const [movedTask] = tasks.splice(fromIndex, 1);
       tasks.splice(toIndex, 0, movedTask);
-      void TodoPersistence.saveTasks(tasks);
+      persistAndBroadcast(tasks);
       return { tasks };
     });
   },
@@ -263,13 +286,30 @@ export const useTodoStore = create<TodoStore>()((set) => ({
       const newTasks = state.tasks.map((task) =>
         task.id === taskId
           ? { ...task, dueDate, updatedAt: new Date().toISOString() }
-          : task
+          : task,
       );
-      void TodoPersistence.saveTasks(newTasks);
+      persistAndBroadcast(newTasks);
       return { tasks: newTasks };
     });
   },
 }));
+
+subscribeToTaskChanges((tasks) => {
+  useTodoStore.setState({ tasks });
+});
+
+subscribeToTaskRequests(() => {
+  broadcastTaskChanges(useTodoStore.getState().tasks);
+});
+
+subscribeToTaskCommands((command) => {
+  const store = useTodoStore.getState();
+  if (command.type === "toggle-complete") {
+    store.toggleComplete(command.taskId);
+  } else {
+    store.updateTaskDueDate(command.taskId, command.dueDate);
+  }
+});
 
 // Priority color mapping
 export const priorityColors: Record<Priority, string> = {
@@ -304,5 +344,5 @@ export const useIsLoading = () => useTodoStore((s) => s.isLoading);
 
 export const useTasksForDate = (dateStr: string) =>
   useTodoStore((state) =>
-    state.tasks.filter((task) => task.dueDate?.startsWith(dateStr))
+    state.tasks.filter((task) => task.dueDate?.startsWith(dateStr)),
   );

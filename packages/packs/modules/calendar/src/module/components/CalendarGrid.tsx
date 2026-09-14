@@ -26,7 +26,7 @@ import {
   formatWeekRange,
   getDayNames,
 } from "../store";
-import { useTodoStore } from "@fancydashboard/pack-module-todo";
+import { useTaskBridgeStore } from "../taskBridge";
 
 // ============================================================================
 // Day Cell Component
@@ -90,7 +90,7 @@ const DayCell = memo(function DayCell({
     if (!day.isSelected) return {};
     return {
       backgroundColor: `${colors.selectionColor}${Math.round(
-        colors.selectionOpacity * 2.55
+        colors.selectionOpacity * 2.55,
       )
         .toString(16)
         .padStart(2, "0")}`,
@@ -119,7 +119,7 @@ const DayCell = memo(function DayCell({
       e.preventDefault();
       onDragOver(day.date);
     },
-    [onDragOver, day.date]
+    [onDragOver, day.date],
   );
 
   const handleDragLeave = useCallback(() => {
@@ -131,7 +131,7 @@ const DayCell = memo(function DayCell({
       e.preventDefault();
       onDrop(day.date);
     },
-    [onDrop, day.date]
+    [onDrop, day.date],
   );
 
   return (
@@ -367,9 +367,9 @@ export const CalendarGrid = memo(function CalendarGrid({
     endDrag,
   } = useCalendarStore();
 
-  const tasks = useTodoStore((s) => s.tasks);
-  const updateTaskDueDate = useTodoStore((s) => s.updateTaskDueDate);
-  const setFilterDate = useTodoStore((s) => s.setFilterDate);
+  const tasks = useTaskBridgeStore((s) => s.tasks);
+  const updateTaskDueDate = useTaskBridgeStore((s) => s.updateTaskDueDate);
+  const setFilterDate = useTaskBridgeStore((s) => s.setFilterDate);
 
   // Generate grid data
   const days = useMemo(() => {
@@ -378,20 +378,20 @@ export const CalendarGrid = memo(function CalendarGrid({
         currentDate,
         selectedDate,
         tasks,
-        config.startWeekOnMonday
+        config.startWeekOnMonday,
       );
     }
     return generateCalendarGrid(
       currentDate,
       selectedDate,
       tasks,
-      config.startWeekOnMonday
+      config.startWeekOnMonday,
     );
   }, [currentDate, selectedDate, tasks, config.startWeekOnMonday, view]);
 
   const dayNames = useMemo(
     () => getDayNames(config.startWeekOnMonday),
-    [config.startWeekOnMonday]
+    [config.startWeekOnMonday],
   );
 
   // Navigation handlers
@@ -417,14 +417,14 @@ export const CalendarGrid = memo(function CalendarGrid({
       toggleDateSelection(date);
       // Update todo filter
       const dateStr = format(date, "yyyy-MM-dd");
-      const currentFilter = useTodoStore.getState().filterDate;
+      const currentFilter = useTaskBridgeStore.getState().filterDate;
       if (currentFilter === dateStr) {
         setFilterDate(null);
       } else {
         setFilterDate(dateStr);
       }
     },
-    [toggleDateSelection, setFilterDate]
+    [toggleDateSelection, setFilterDate],
   );
 
   // Drag and drop handlers
@@ -434,7 +434,7 @@ export const CalendarGrid = memo(function CalendarGrid({
         setDropTarget(date);
       }
     },
-    [draggedTaskId, setDropTarget]
+    [draggedTaskId, setDropTarget],
   );
 
   const handleDragLeave = useCallback(() => {
@@ -449,7 +449,7 @@ export const CalendarGrid = memo(function CalendarGrid({
         endDrag();
       }
     },
-    [draggedTaskId, updateTaskDueDate, endDrag]
+    [draggedTaskId, updateTaskDueDate, endDrag],
   );
 
   // Animation direction tracking
@@ -537,7 +537,7 @@ export const CalendarGrid = memo(function CalendarGrid({
               backgroundColor:
                 config.colors.tintOpacity > 0
                   ? `${config.colors.tintColor}${Math.round(
-                      config.colors.tintOpacity * 2.55
+                      config.colors.tintOpacity * 2.55,
                     )
                       .toString(16)
                       .padStart(2, "0")}`

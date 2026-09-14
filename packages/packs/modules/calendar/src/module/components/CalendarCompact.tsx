@@ -11,7 +11,7 @@ import { Calendar, ChevronRight } from "lucide-react";
 import type { CalendarConfig } from "../types";
 import { FONT_FAMILY_CLASSES, FONT_WEIGHT_CLASSES } from "../types";
 import { useCalendarStore } from "../store";
-import { useTodoStore } from "@fancydashboard/pack-module-todo";
+import { useTaskBridgeStore } from "../taskBridge";
 
 // ============================================================================
 // Types
@@ -32,14 +32,14 @@ const TodayOnly = memo(function TodayOnly({
   config: CalendarConfig;
 }) {
   const today = new Date();
-  const tasks = useTodoStore((s) => s.tasks);
-  const setFilterDate = useTodoStore((s) => s.setFilterDate);
+  const tasks = useTaskBridgeStore((s) => s.tasks);
+  const setFilterDate = useTaskBridgeStore((s) => s.setFilterDate);
   const { selectDate } = useCalendarStore();
 
   const todayStr = format(today, "yyyy-MM-dd");
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.dueDate?.startsWith(todayStr) && !t.completed),
-    [tasks, todayStr]
+    [tasks, todayStr],
   );
 
   const handleClick = () => {
@@ -119,14 +119,14 @@ const TodayWithTasks = memo(function TodayWithTasks({
   config: CalendarConfig;
 }) {
   const today = new Date();
-  const tasks = useTodoStore((s) => s.tasks);
-  const setFilterDate = useTodoStore((s) => s.setFilterDate);
+  const tasks = useTaskBridgeStore((s) => s.tasks);
+  const setFilterDate = useTaskBridgeStore((s) => s.setFilterDate);
   const { selectDate } = useCalendarStore();
 
   const todayStr = format(today, "yyyy-MM-dd");
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.dueDate?.startsWith(todayStr)),
-    [tasks, todayStr]
+    [tasks, todayStr],
   );
 
   const getPriorityColor = (priority: "low" | "medium" | "high") => {

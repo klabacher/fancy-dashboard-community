@@ -1,6 +1,6 @@
 {
   "name": "@fancydashboard/pack-module-clock",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "type": "module",
   "exports": {
     ".": {

@@ -6,12 +6,12 @@ Este repositório não duplica o SDK nem o runtime do projeto principal. Os paco
 
 ## Compatibilidade atual
 
-| Componente | Versão |
-| --- | --- |
-| FancyDashboard Community | `1.0.0` |
-| FancyDashboard Core | `1.0.0` (`v1.0.0`) |
-| Node.js | `24` |
-| pnpm | `9.12.3` |
+| Componente               | Versão             |
+| ------------------------ | ------------------ |
+| FancyDashboard Community | `1.1.0`            |
+| FancyDashboard Core      | `1.1.0` (`v1.1.0`) |
+| Node.js                  | `24`               |
+| pnpm                     | `9.12.3`           |
 
 A fonte canônica dessas informações é [`compatibility.json`](./compatibility.json). Uma release do Community só é publicada depois de comprovar que todos os módulos e plugins compilam contra o core indicado nesse arquivo.
 

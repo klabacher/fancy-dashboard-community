@@ -10,7 +10,6 @@ import {
   type CalendarConfig,
 } from "./types";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const CalendarWidget = lazy(() => import("./widgets/Calendar"));
 
 export default createModule({
@@ -37,7 +36,7 @@ export default createModule({
     type: "react-icon",
     component: CalendarDays,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {
@@ -46,7 +45,7 @@ export default createModule({
       description: "Standard calendar (2x2) with customization.",
       component: CalendarWidget,
       settingsComponent: null,
-      permissions: [{ kind: "store:read" }],
+      permissions: [],
       grid: {
         defaultW: 2,
         defaultH: 2,
@@ -70,7 +69,7 @@ export default createModule({
       description: "Compact calendar showing today only.",
       component: CalendarWidget,
       settingsComponent: null,
-      permissions: [{ kind: "store:read" }],
+      permissions: [],
       grid: {
         defaultW: 1,
         defaultH: 1,
@@ -94,7 +93,7 @@ export default createModule({
       description: "Compact calendar with today's tasks.",
       component: CalendarWidget,
       settingsComponent: null,
-      permissions: [{ kind: "store:read" }],
+      permissions: [],
       grid: {
         defaultW: 1,
         defaultH: 2,
@@ -118,7 +117,7 @@ export default createModule({
       description: "Full calendar with inline tasks.",
       component: CalendarWidget,
       settingsComponent: null,
-      permissions: [{ kind: "store:read" }],
+      permissions: [],
       grid: {
         defaultW: 4,
         defaultH: 4,

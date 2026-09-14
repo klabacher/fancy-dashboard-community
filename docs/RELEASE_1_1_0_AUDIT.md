@@ -1,0 +1,62 @@
+# FancyDashboard Community 1.1.0 audit
+
+Status: release candidate under active audit. This document records evidence; it does not claim visual release readiness.
+
+## Architecture and distribution
+
+Community contains eight module packs and one plugin pack. It consumes the canonical Core SDK and Runtime through the composed `FancyDashboardProject` workspace. No SDK or Runtime copies are published from this repository. Pack builds externalize host-provided React, SDK, Runtime, icon, animation, state, schema, date, and Tauri dialog libraries. Portable release artifacts use the Core `fancy-browser-v1` ABI and contain only `index.js` plus `manifest.json`.
+
+The previous integration lock contained 471 packages with no current importer, including an obsolete ArcGIS/deck.gl dependency tree. Regeneration from all 17 actual workspace importers removed that stale tree and added the Core root importer required by the artifact builder.
+
+## Defect ledger
+
+| ID          | Severity | Area                         | Reproduction / actual behavior                                                                                                                              | Cause                                                                                    | Fix and regression evidence                                                                                                                                                                                                                                          | Status                            |
+| ----------- | -------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| FD-COMM-001 | High     | MapCN packaging              | Build advertised `dist/index.js`, but no `src/index.ts` existed.                                                                                            | Package exports and source entry points diverged.                                        | Added the public entry and verified ESM, CJS, declarations, manifest, ID, version, and widgets.                                                                                                                                                                      | Fixed                             |
+| FD-COMM-002 | High     | Calendar / To-Do             | Task changes in one independently loaded bundle were stale in the other.                                                                                    | Each bundle owned a separate Zustand module instance and emitted no cross-bundle signal. | Added a validated snapshot/request/command event protocol; a cross-package regression test proves Calendar and To-Do interoperate.                                                                                                                                   | Fixed; native interaction pending |
+| FD-COMM-003 | Medium   | Bundle size                  | Standard packs embedded large copies of host libraries.                                                                                                     | Build externals differed by pack.                                                        | Standardized externals; built bundles dropped to roughly 22–135 KB before portable minification.                                                                                                                                                                     | Fixed                             |
+| FD-COMM-004 | Medium   | Settings UX                  | Every pack exposed an empty global settings screen.                                                                                                         | Placeholder components were treated as real configuration.                               | Deleted the placeholders and adopted Core's explicit nullable global-settings contract.                                                                                                                                                                              | Fixed                             |
+| FD-COMM-005 | Medium   | Weather build                | CommonJS emitted an `import.meta` warning and shipped a development hook.                                                                                   | Release code referenced `import.meta.env.DEV`.                                           | Removed the hook and dead refactor component; both output formats build cleanly.                                                                                                                                                                                     | Fixed                             |
+| FD-COMM-006 | Medium   | Weather visuals              | Particle positions and timing changed on every render.                                                                                                      | Render-time randomness created flicker and hydration instability.                        | Replaced randomness with deterministic index formulas.                                                                                                                                                                                                               | Fixed; visual inspection pending  |
+| FD-COMM-007 | High     | Release contract             | Package versions could disagree with compiled manifests and missing exports passed source checks.                                                           | The release verifier only covered shallow metadata.                                      | `verify:release` checks version and entries; `verify:built` imports both formats and checks declarations, runtime shape, and permission coverage.                                                                                                                    | Fixed                             |
+| FD-COMM-008 | High     | Permissions                  | Catalog manifests omit capabilities already used by runtimes and bridge clients.                                                                            | Runtime, bridge, and catalog metadata had no cross-contract gate.                        | Added a verifier for compiled runtime permissions plus source bridge manifests, including `tauri:fs` → `fs:scope` and `tauri:shell` → `shell:exec`. Applying the least-capability declarations requires explicit security approval.                                  | Blocked on approval               |
+| FD-COMM-009 | Blocker  | Visual QA                    | The native app can launch, but no screen can be observed or controlled.                                                                                     | The Computer Use trusted Node kernel exits during initialization.                        | Multiple launches proved the app process and frontend remain stable; no visual result is claimed.                                                                                                                                                                    | External blocker                  |
+| FD-COMM-010 | High     | To-Do persistence            | Rapid mutations could finish native saves out of order, and malformed cross-bundle events were accepted as task state.                                      | Save calls were concurrent and the event payload was trusted by assertion.               | Added snapshot-based serialized persistence, payload validation, defensive copies, and six regression tests covering ordering, recovery, subscription cleanup, requests, commands, and malformed events.                                                             | Fixed; native interaction pending |
+| FD-COMM-011 | Critical | Calendar permission identity | The portable Calendar bundle embedded To-Do's native bridge client and invoked storage under plugin ID `todo`, although Calendar declared only read access. | Calendar imported the entire To-Do pack, and the bundler inlined that dependency.        | Replaced the dependency with a narrow event adapter, removed Calendar's native storage permission, and proved by literal artifact scan that its bundle contains no To-Do bridge client or package import. Four Calendar tests include cross-bundle interoperability. | Fixed; native interaction pending |
+
+## Permission model under review
+
+The intended declarations mirror capabilities already present in runtime or bridge code:
+
+| Pack               | Requested capability                                                          |
+| ------------------ | ----------------------------------------------------------------------------- |
+| Calendar           | None; it exchanges validated snapshots and commands with an active To-Do pack |
+| Clock              | Fetch from `https://api.open-meteo.com`                                       |
+| Launcher           | Select `.lnk` files, run the launcher command, fetch HTTPS favicons           |
+| LoL Player Stats   | Read/write settings and fetch Riot regional APIs                              |
+| PC Monitor         | Read system specs/telemetry and read/write widget storage                     |
+| Productivity Suite | None                                                                          |
+| To-Do              | Read/write task storage                                                       |
+| Weather            | Fetch from `https://api.open-meteo.com`                                       |
+| MapCN              | Capture network data and read/write widget storage                            |
+
+Core 1.1.0 maps `net:fetch` from the runtime permission model into its consent manager and maps catalog `fs:scope`/`shell:exec` declarations to bridge `tauri:fs`/`tauri:shell`. Scope arrays remain visible release metadata; the current bridge grants by permission kind, so broad scope text must not be represented as a network or filesystem sandbox boundary.
+
+## Verification completed
+
+- Source release verifier: 9 packs compatible with Core 1.1.0.
+- Composed SDK, Runtime, and all 9 Community builds: passed.
+- Calendar/To-Do protocol and persistence unit tests: 10 passed.
+- Calendar compiled artifact scan: no To-Do bridge commands, manifest identity, or package import.
+- Built-pack ESM/CJS/declaration/widget verifier: loads all nine outputs and reports the complete unresolved catalog contract, including Launcher bridge-only capabilities.
+- Production dependency audit: no known vulnerabilities at the moderate threshold.
+- Portable artifacts: two independent pre-permission builds were byte-identical and every ZIP had the exact two-file ABI.
+- Formatting and `git diff --check`: passed for the current candidate.
+
+## Required before release
+
+1. Obtain explicit approval for the reviewed permission declarations and apply them.
+2. Rebuild all nine packs against the final Core SHA and make `verify:built` pass with catalog/runtime/bridge permission coverage.
+3. Generate portable artifacts twice after the final permission change and compare every byte and SHA-256 value.
+4. Exercise install, activation, configuration, update, removal, failure recovery, persistence, and cross-pack task synchronization in the native application.
+5. Inspect all widgets and Marketplace states at the required desktop viewports with keyboard, focus, contrast, reduced-motion, overflow, and resize checks.
