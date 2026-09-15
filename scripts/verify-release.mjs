@@ -80,12 +80,28 @@ if (trackedGenerated.length > 0) {
 }
 
 const packDirs = await listPackDirs(root);
-if (packDirs.length === 0) fail("No community packs found");
+if (packDirs.length !== 9)
+  fail("Expected exactly 9 Community packs, found " + packDirs.length);
 const seenNames = new Set();
 for (const packDir of packDirs) {
   const packJsonPath = path.join(packDir, "package.json");
   const manifestPath = path.join(packDir, "src", "manifest.ts");
   const entryPath = path.join(packDir, "src", "index.ts");
+  const legacyManifestPath = path.join(
+    packDir,
+    "src",
+    "module",
+    "manifest.json",
+  );
+  try {
+    await fs.access(legacyManifestPath);
+    fail(
+      "Legacy module manifest conflicts with src/manifest.ts: " +
+        legacyManifestPath,
+    );
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
   const pack = await readJson(packJsonPath);
   if (!pack.name || typeof pack.name !== "string")
     fail(`Missing package name in ${packJsonPath}`);

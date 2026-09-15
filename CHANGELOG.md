@@ -27,6 +27,10 @@ All notable changes to FancyDashboard Community are documented here.
 - The release verifier now rejects package/manifest version drift and incomplete exports.
 - Community release checkout no longer requires a PAT for the public Core repository.
 
+### Removed
+
+- Five unreferenced legacy module manifests with conflicting IDs, capabilities, and dependency metadata.
+
 ### Release blockers
 
 - Final permission declarations require explicit security approval before they are persisted.
