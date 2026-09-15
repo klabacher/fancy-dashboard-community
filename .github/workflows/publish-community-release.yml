@@ -56,24 +56,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Require read-only token for private core
-        shell: bash
-        env:
-          CORE_READ_TOKEN: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "$CORE_READ_TOKEN" ]; then
-            echo "Missing FANCYDASHBOARD_CORE_READ_TOKEN. Configure a fine-grained token with Contents: Read for klabacher/FancyDashboard."
-            exit 1
-          fi
-
       - name: Checkout exact compatible FancyDashboard core
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: klabacher/FancyDashboard
           ref: ${{ env.CORE_TAG }}
           path: core
-          token: ${{ secrets.FANCYDASHBOARD_CORE_READ_TOKEN }}
           persist-credentials: false
           fetch-depth: 1
 

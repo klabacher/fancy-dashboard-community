@@ -10,6 +10,7 @@ All notable changes to FancyDashboard Community are documented here.
 - ESM, CommonJS, declaration, manifest, widget, version, and permission contract verification.
 - A public entry point for MapCN so its declared package exports can be loaded.
 - A validated snapshot/request/command protocol between independently loaded Calendar and To-Do bundles.
+- A reviewable 1.1.0 permission matrix with explicit Launcher blast radius and enforcement limits.
 
 ### Changed
 
@@ -24,6 +25,7 @@ All notable changes to FancyDashboard Community are documented here.
 - MapCN now emits its advertised ESM, CommonJS, declaration, and manifest exports.
 - Calendar observes and edits To-Do tasks across independently installed packs without embedding To-Do's native bridge identity.
 - The release verifier now rejects package/manifest version drift and incomplete exports.
+- Community release checkout no longer requires a PAT for the public Core repository.
 
 ### Release blockers
 

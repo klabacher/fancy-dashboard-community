@@ -101,19 +101,9 @@ Ele:
 9. gera bundle, tutorial e SHA-256;
 10. cria a GitHub Release com os commits incluídos e seus títulos/descrições.
 
-## 8. Secret necessário para core privado
+## 8. Checkout do Core
 
-Configure no repositório Community:
-
-`Settings → Secrets and variables → Actions → New repository secret`
-
-Nome:
-
-```text
-FANCYDASHBOARD_CORE_READ_TOKEN
-```
-
-O token deve ser fine-grained, limitado a `klabacher/FancyDashboard` e possuir apenas `Contents: Read`. Não conceda permissão de escrita.
+O Core compatível é público e baixado pelo workflow usando somente leitura. Não configure PAT ou secret adicional para esse checkout.
 
 ## 9. Recuperação de falha
 
