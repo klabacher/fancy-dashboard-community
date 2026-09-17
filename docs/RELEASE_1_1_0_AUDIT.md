@@ -56,7 +56,7 @@ Core 1.1.0 maps `net:fetch` from the runtime permission model into its consent m
 - Calendar compiled artifact scan: no To-Do bridge commands, manifest identity, or package import.
 - Built-pack ESM/CJS/declaration/widget verifier: loads all nine outputs and proves exact equality with the approved catalog/runtime/bridge matrix, including Launcher allowlists.
 - Production dependency audit: no known vulnerabilities at the moderate threshold.
-- Portable artifacts: two independent post-permission generations of all nine ZIPs, the catalog, checksum set, and aggregate bundle were byte-identical. Catalog SHA-256: `1a378950e0455cc9fbcd3a953d2f96a7c9debc2e45b96c87d5e1733741038546`; aggregate bundle SHA-256: `2870337ad67eac041a76cb0bd681897e06e983fad9678ae1ebcffa15f0002f82`.
+- Portable artifacts: two independent post-permission full builds of all nine ZIPs, the catalog, checksum set, and aggregate bundle were byte-identical. Catalog SHA-256: `54b7fb94e4e6852b016881f58f1071d99d2d9598cbd568b642171fdbf0c1c51d`; aggregate bundle SHA-256: `d14e3290eb09411e5f2be66426ad0a1655dd2718fcf6d54fdbae87d69e73ac73`.
 - Formatting and `git diff --check`: passed for the current candidate.
 
 ## Required before release
