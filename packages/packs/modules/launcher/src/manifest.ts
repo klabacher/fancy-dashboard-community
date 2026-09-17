@@ -21,7 +21,11 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-launcher",
   },
-  permissionsRequested: [],
+  permissionsRequested: [
+    { kind: "fs:scope", allow: ["*"] },
+    { kind: "shell:exec", allow: ["*"] },
+    { kind: "net:fetch", allow: ["http://*", "https://*"] },
+  ],
   widgets: [
     {
       id: "launcher-widget",

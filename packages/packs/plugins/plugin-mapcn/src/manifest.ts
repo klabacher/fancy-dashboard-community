@@ -21,7 +21,11 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-plugin-mapcn",
   },
-  permissionsRequested: [{ kind: "network:capture" }],
+  permissionsRequested: [
+    { kind: "network:capture" },
+    { kind: "store:read" },
+    { kind: "store:write" },
+  ],
   widgets: [
     {
       id: "mapcn-compact",

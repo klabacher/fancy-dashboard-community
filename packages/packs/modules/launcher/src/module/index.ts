@@ -48,7 +48,11 @@ export default createModule({
     component: RocketIcon,
   },
   globalSettings: null,
-  globalPermissions: [],
+  globalPermissions: [
+    { kind: "fs:scope", allow: ["*"] },
+    { kind: "shell:exec", allow: ["*"] },
+    { kind: "net:fetch", allow: ["http://*", "https://*"] },
+  ],
   widgets: [
     {
       id: "launcher-widget",

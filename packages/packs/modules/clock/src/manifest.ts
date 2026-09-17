@@ -21,7 +21,9 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-clock",
   },
-  permissionsRequested: [],
+  permissionsRequested: [
+    { kind: "net:fetch", allow: ["https://api.open-meteo.com"] },
+  ],
   widgets: [
     {
       id: "clock-digital",

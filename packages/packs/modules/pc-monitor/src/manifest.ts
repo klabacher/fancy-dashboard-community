@@ -21,7 +21,12 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-pc-monitor",
   },
-  permissionsRequested: [],
+  permissionsRequested: [
+    { kind: "system:specs" },
+    { kind: "system:telemetry" },
+    { kind: "store:read" },
+    { kind: "store:write" },
+  ],
   widgets: [
     {
       id: "pc-monitor",

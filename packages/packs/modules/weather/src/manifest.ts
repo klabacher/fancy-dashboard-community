@@ -20,7 +20,9 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-weather",
   },
-  permissionsRequested: [],
+  permissionsRequested: [
+    { kind: "net:fetch", allow: ["https://api.open-meteo.com"] },
+  ],
   widgets: [
     {
       id: "weather-compact",

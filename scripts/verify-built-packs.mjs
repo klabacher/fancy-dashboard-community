@@ -80,6 +80,59 @@ async function collectInternalBridgePermissions(packDir) {
 
 const permissionErrors = new Set();
 
+const approvedPermissionMatrix = {
+  calendar: [],
+  clock: [{ kind: "net:fetch", allow: ["https://api.open-meteo.com"] }],
+  launcher: [
+    { kind: "fs:scope", allow: ["*"] },
+    { kind: "shell:exec", allow: ["*"] },
+    { kind: "net:fetch", allow: ["http://*", "https://*"] },
+  ],
+  "lol-player-stats": [
+    { kind: "store:read" },
+    { kind: "store:write" },
+    { kind: "net:fetch", allow: ["https://*.api.riotgames.com"] },
+  ],
+  "pc-monitor": [
+    { kind: "system:specs" },
+    { kind: "system:telemetry" },
+    { kind: "store:read" },
+    { kind: "store:write" },
+  ],
+  "productivity-suite": [],
+  todo: [{ kind: "store:read" }, { kind: "store:write" }],
+  weather: [{ kind: "net:fetch", allow: ["https://api.open-meteo.com"] }],
+  mapcn: [
+    { kind: "network:capture" },
+    { kind: "store:read" },
+    { kind: "store:write" },
+  ],
+};
+
+function normalizedPermissions(permissions) {
+  return permissions
+    .map((permission) => ({
+      kind: permission.kind,
+      ...(Array.isArray(permission.allow)
+        ? { allow: [...permission.allow].sort() }
+        : {}),
+    }))
+    .sort((left, right) => left.kind.localeCompare(right.kind));
+}
+
+function assertApprovedPermissions(manifest) {
+  const expected = approvedPermissionMatrix[manifest.id];
+  assert(expected, `${manifest.id}: missing approved permission matrix entry`);
+  const actualJson = JSON.stringify(
+    normalizedPermissions(manifest.permissionsRequested ?? []),
+  );
+  const expectedJson = JSON.stringify(normalizedPermissions(expected));
+  assert(
+    actualJson === expectedJson,
+    `${manifest.id}: catalog permissions do not match the approved matrix\nexpected ${expectedJson}\nactual   ${actualJson}`,
+  );
+}
+
 function assertRuntimePermissionsAreDeclared(pkgName, runtime, manifest) {
   const declared = manifest.permissionsRequested ?? [];
   const requested = [
@@ -167,6 +220,8 @@ for (const packDir of await listPackDirs()) {
   const manifestCjs = moduleExport(
     require(path.resolve(packDir, manifestExports.require)),
   );
+
+  assertApprovedPermissions(manifestEsm);
 
   for (const [format, module] of [
     ["ESM", esm],

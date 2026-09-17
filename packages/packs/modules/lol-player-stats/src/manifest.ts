@@ -21,7 +21,11 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-lol-player-stats",
   },
-  permissionsRequested: [],
+  permissionsRequested: [
+    { kind: "store:read" },
+    { kind: "store:write" },
+    { kind: "net:fetch", allow: ["https://*.api.riotgames.com"] },
+  ],
   widgets: [
     {
       id: "lol-player-stats",

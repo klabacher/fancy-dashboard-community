@@ -21,7 +21,7 @@ export const manifest = defineModulePack({
   entry: {
     frontend: "@fancydashboard/pack-module-todo",
   },
-  permissionsRequested: [],
+  permissionsRequested: [{ kind: "store:read" }, { kind: "store:write" }],
   widgets: [
     {
       id: "todo",
