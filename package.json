@@ -1,6 +1,6 @@
 {
   "name": "fancy-dashboard-community",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Official community modules and plugins for FancyDashboard.",
   "license": "ISC",
@@ -8,6 +8,7 @@
   "scripts": {
     "verify:release": "node scripts/verify-release.mjs",
     "release:bundle": "node scripts/package-community-release.mjs",
-    "ci": "node scripts/verify-release.mjs"
+    "ci": "node scripts/verify-release.mjs",
+    "verify:built": "node scripts/verify-built-packs.mjs"
   }
 }

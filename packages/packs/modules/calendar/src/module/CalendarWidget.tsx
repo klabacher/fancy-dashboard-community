@@ -10,7 +10,7 @@ import { useWidgetViewport } from "@fancydashboard/sdk";
 import type { CalendarConfig } from "./types";
 import { DEFAULT_CALENDAR_CONFIG } from "./types";
 import { useCalendarStore } from "./store";
-import { useTodoStore } from "@fancydashboard/pack-module-todo";
+import { useTaskBridgeStore } from "./taskBridge";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { CalendarCompact } from "./components/CalendarCompact";
 import { CalendarExpanded } from "./components/CalendarExpanded";
@@ -27,7 +27,7 @@ function resolveWidgetSize(
   configuredSize: WidgetSize,
   width: number,
   height: number,
-  aspectRatio: number
+  aspectRatio: number,
 ): WidgetSize {
   // Before the first ResizeObserver measurement, preserve the persisted choice.
   if (width <= 0 || height <= 0) return configuredSize;
@@ -59,7 +59,7 @@ export const CalendarWidget = memo(function CalendarWidget({
 
   const configuredSize = useMemo<WidgetSize>(
     () => config?.layout ?? "standard",
-    [config?.layout]
+    [config?.layout],
   );
 
   const widgetSize = useMemo(
@@ -68,9 +68,9 @@ export const CalendarWidget = memo(function CalendarWidget({
         configuredSize,
         viewport.width,
         viewport.height,
-        viewport.aspectRatio
+        viewport.aspectRatio,
       ),
-    [configuredSize, viewport.width, viewport.height, viewport.aspectRatio]
+    [configuredSize, viewport.width, viewport.height, viewport.aspectRatio],
   );
 
   const mergedConfig = useMemo(
@@ -90,12 +90,12 @@ export const CalendarWidget = memo(function CalendarWidget({
         ...config?.colors,
       },
     }),
-    [config]
+    [config],
   );
 
   const { isSettingsOpen, openSettings, closeSettings } = useCalendarStore();
-  const initializeTodo = useTodoStore((state) => state.initialize);
-  const isLoading = useTodoStore((state) => state.isLoading);
+  const initializeTodo = useTaskBridgeStore((state) => state.initialize);
+  const isLoading = useTaskBridgeStore((state) => state.isLoading);
   const [initError, setInitError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -116,8 +116,14 @@ export const CalendarWidget = memo(function CalendarWidget({
         className="flex h-full w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-red-300/15 bg-red-950/45 p-[clamp(0.65rem,4cqw,1rem)] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-2xl"
         role="alert"
       >
-        <AlertTriangle className="mb-2 text-red-300" size={24} aria-hidden="true" />
-        <p className="text-sm font-medium text-red-100">Failed to load calendar</p>
+        <AlertTriangle
+          className="mb-2 text-red-300"
+          size={24}
+          aria-hidden="true"
+        />
+        <p className="text-sm font-medium text-red-100">
+          Failed to load calendar
+        </p>
         <p className="mt-1 max-w-full truncate text-xs text-red-200/65">
           {initError.message}
         </p>
@@ -143,7 +149,9 @@ export const CalendarWidget = memo(function CalendarWidget({
   }
 
   const showSettingsButton =
-    widgetSize !== "expanded" && widgetSize !== "compact-1x1" && !viewport.isShort;
+    widgetSize !== "expanded" &&
+    widgetSize !== "compact-1x1" &&
+    !viewport.isShort;
 
   return (
     <section

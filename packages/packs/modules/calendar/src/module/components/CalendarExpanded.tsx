@@ -26,7 +26,7 @@ import {
   formatMonthYear,
   getDayNames,
 } from "../store";
-import { useTodoStore } from "@fancydashboard/pack-module-todo";
+import { useTaskBridgeStore } from "../taskBridge";
 
 // ============================================================================
 // Types
@@ -61,7 +61,7 @@ const ExpandedDayCell = memo(function ExpandedDayCell({
   onDrop,
 }: ExpandedDayCellProps) {
   const { colors, geometry, typography } = config;
-  const toggleComplete = useTodoStore((s) => s.toggleComplete);
+  const toggleComplete = useTaskBridgeStore((s) => s.toggleComplete);
 
   const opacity = day.isCurrentMonth
     ? colors.activeMonthOpacity / 100
@@ -100,7 +100,7 @@ const ExpandedDayCell = memo(function ExpandedDayCell({
       e.preventDefault();
       onDragOver(day.date);
     },
-    [onDragOver, day.date]
+    [onDragOver, day.date],
   );
 
   return (
@@ -217,9 +217,9 @@ export const CalendarExpanded = memo(function CalendarExpanded({
     endDrag,
   } = useCalendarStore();
 
-  const tasks = useTodoStore((s) => s.tasks);
-  const updateTaskDueDate = useTodoStore((s) => s.updateTaskDueDate);
-  const setFilterDate = useTodoStore((s) => s.setFilterDate);
+  const tasks = useTaskBridgeStore((s) => s.tasks);
+  const updateTaskDueDate = useTaskBridgeStore((s) => s.updateTaskDueDate);
+  const setFilterDate = useTaskBridgeStore((s) => s.setFilterDate);
 
   const [direction, setDirection] = useState(0);
 
@@ -229,28 +229,28 @@ export const CalendarExpanded = memo(function CalendarExpanded({
         currentDate,
         selectedDate,
         tasks,
-        config.startWeekOnMonday
+        config.startWeekOnMonday,
       ),
-    [currentDate, selectedDate, tasks, config.startWeekOnMonday]
+    [currentDate, selectedDate, tasks, config.startWeekOnMonday],
   );
 
   const dayNames = useMemo(
     () => getDayNames(config.startWeekOnMonday, false),
-    [config.startWeekOnMonday]
+    [config.startWeekOnMonday],
   );
 
   const handleDateSelect = useCallback(
     (date: Date) => {
       toggleDateSelection(date);
       const dateStr = format(date, "yyyy-MM-dd");
-      const currentFilter = useTodoStore.getState().filterDate;
+      const currentFilter = useTaskBridgeStore.getState().filterDate;
       if (currentFilter === dateStr) {
         setFilterDate(null);
       } else {
         setFilterDate(dateStr);
       }
     },
-    [toggleDateSelection, setFilterDate]
+    [toggleDateSelection, setFilterDate],
   );
 
   const handleDragOver = useCallback(
@@ -259,7 +259,7 @@ export const CalendarExpanded = memo(function CalendarExpanded({
         setDropTarget(date);
       }
     },
-    [draggedTaskId, setDropTarget]
+    [draggedTaskId, setDropTarget],
   );
 
   const handleDrop = useCallback(
@@ -270,7 +270,7 @@ export const CalendarExpanded = memo(function CalendarExpanded({
         endDrag();
       }
     },
-    [draggedTaskId, updateTaskDueDate, endDrag]
+    [draggedTaskId, updateTaskDueDate, endDrag],
   );
 
   const gridVariants = {

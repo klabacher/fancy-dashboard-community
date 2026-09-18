@@ -18,7 +18,7 @@ Baixe também `SHA256SUMS.txt` da mesma release.
 ### Windows PowerShell
 
 ```powershell
-Get-FileHash .\FancyDashboard-Community-1.0.0.zip -Algorithm SHA256
+Get-FileHash .\FancyDashboard-Community-1.1.0.zip -Algorithm SHA256
 ```
 
 Compare o valor retornado com a linha correspondente em `SHA256SUMS.txt`.
@@ -26,13 +26,13 @@ Compare o valor retornado com a linha correspondente em `SHA256SUMS.txt`.
 ### Linux
 
 ```bash
-sha256sum FancyDashboard-Community-1.0.0.zip
+sha256sum FancyDashboard-Community-1.1.0.zip
 ```
 
 ### macOS
 
 ```bash
-shasum -a 256 FancyDashboard-Community-1.0.0.zip
+shasum -a 256 FancyDashboard-Community-1.1.0.zip
 ```
 
 Se a hash divergir, não use o arquivo.
@@ -72,7 +72,7 @@ pnpm --filter @fancydashboard/runtime build
 pnpm --filter './fancy-dashboard-community/packages/packs/**' -r run build
 ```
 
-Se estiver trabalhando nas branches de release antes de `v1.0.0`, use os refs de release correspondentes do core/community em vez de misturar `master` com uma branch incompatível.
+Se estiver trabalhando nas branches de release antes de `v1.1.0`, use os refs de release correspondentes do core/community em vez de misturar `master` com uma branch incompatível.
 
 ## 6. Criando um novo pack
 
@@ -101,19 +101,9 @@ Ele:
 9. gera bundle, tutorial e SHA-256;
 10. cria a GitHub Release com os commits incluídos e seus títulos/descrições.
 
-## 8. Secret necessário para core privado
+## 8. Checkout do Core
 
-Configure no repositório Community:
-
-`Settings → Secrets and variables → Actions → New repository secret`
-
-Nome:
-
-```text
-FANCYDASHBOARD_CORE_READ_TOKEN
-```
-
-O token deve ser fine-grained, limitado a `klabacher/FancyDashboard` e possuir apenas `Contents: Read`. Não conceda permissão de escrita.
+O Core compatível é público e baixado pelo workflow usando somente leitura. Não configure PAT ou secret adicional para esse checkout.
 
 ## 9. Recuperação de falha
 

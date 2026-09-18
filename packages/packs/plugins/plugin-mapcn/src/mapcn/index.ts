@@ -16,21 +16,20 @@ import {
   type MapCNMap2DConfig,
 } from "./MapCN.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const MapCNCompact = lazy(() =>
   import("./widgets/MapCNCompactWidget").then((module) => ({
     default: module.MapCNCompactWidget,
-  }))
+  })),
 );
 const MapCNMap2D = lazy(() =>
   import("./widgets/MapCNMap2DWidget").then((module) => ({
     default: module.MapCNMap2DWidget,
-  }))
+  })),
 );
 const MapCNGlobe = lazy(() =>
   import("./widgets/MapCNGlobeWidget").then((module) => ({
     default: module.MapCNGlobeWidget,
-  }))
+  })),
 );
 
 export default createModule({
@@ -58,7 +57,7 @@ export default createModule({
     type: "react-icon",
     component: GlobeIcon,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [{ kind: "network:capture" }],
   widgets: [
     {

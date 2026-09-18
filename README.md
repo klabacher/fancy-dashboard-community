@@ -6,12 +6,12 @@ Este repositório não duplica o SDK nem o runtime do projeto principal. Os paco
 
 ## Compatibilidade atual
 
-| Componente | Versão |
-| --- | --- |
-| FancyDashboard Community | `1.0.0` |
-| FancyDashboard Core | `1.0.0` (`v1.0.0`) |
-| Node.js | `24` |
-| pnpm | `9.12.3` |
+| Componente               | Versão             |
+| ------------------------ | ------------------ |
+| FancyDashboard Community | `1.1.0`            |
+| FancyDashboard Core      | `1.1.0` (`v1.1.0`) |
+| Node.js                  | `24`               |
+| pnpm                     | `9.12.3`           |
 
 A fonte canônica dessas informações é [`compatibility.json`](./compatibility.json). Uma release do Community só é publicada depois de comprovar que todos os módulos e plugins compilam contra o core indicado nesse arquivo.
 
@@ -67,13 +67,13 @@ O Community usa SemVer próprio. Para cada release:
 
 O workflow recusa downgrade, tag reutilizada, divergência de metadados, core incompatível, pacote sem manifesto, hash inválido ou build incompleto.
 
-## Configuração única do GitHub Actions
+## Checkout público no GitHub Actions
 
-Como o repositório principal pode ser privado, o workflow de release do Community precisa de um secret chamado **`FANCYDASHBOARD_CORE_READ_TOKEN`** com acesso somente de leitura ao repositório `klabacher/FancyDashboard` (`Contents: Read`). Prefira um fine-grained PAT limitado exclusivamente ao core. Se o core se tornar público, esse secret deixa de ser necessário.
-
-Nenhum token de escrita do core é necessário para publicar o Community. A própria `GITHUB_TOKEN` deste repositório publica somente a release community.
+O Core e o Community são públicos. O workflow usa o checkout de leitura padrão do GitHub e não requer PAT, secret adicional nem credencial persistida para compor a release.
 
 ## Segurança e integridade
+
+A matriz de capacidades da candidata está em [docs/PERMISSIONS_1_1_0.md](./docs/PERMISSIONS_1_1_0.md). Ela registra também o limite atual de enforcement por categoria.
 
 Os bundles são produzidos de forma determinística e todos os assets recebem SHA-256. O catálogo nunca deve usar integridade `000...000`; releases com placeholder são bloqueadas. O instalador do core deve sempre comparar o SHA-256 baixado com a integridade declarada pelo catálogo antes de ativar um pack.
 

@@ -10,7 +10,6 @@ import {
   type WeatherConfig,
 } from "./types";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const WeatherWidget = lazy(() => import("./WeatherWidget"));
 
 const OPEN_METEO_ORIGIN = "https://api.open-meteo.com";
@@ -39,7 +38,7 @@ export default createModule({
     type: "react-icon",
     component: CloudSun,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {

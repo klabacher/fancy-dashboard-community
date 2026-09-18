@@ -30,7 +30,7 @@ import { DEFAULT_LOCATION } from "./utils";
 // WMO Weather Code mapping to internal weather states
 const WMO_TO_STATE = (
   code: number | undefined,
-  isDay: boolean
+  isDay: boolean,
 ): WeatherState => {
   if (code === undefined) return "SUNNY";
   // Thunderstorm codes: 95, 96, 99
@@ -107,49 +107,56 @@ const WEATHER_THEMES: Record<WeatherState, WeatherTheme> = {
 const SunIllustration = memo(({ intense = false }: { intense?: boolean }) => {
   const reduced = useReducedMotion();
   return (
-  <g transform="translate(100, 100)">
-    <motion.g
-      initial={{ scale: 0.5, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.5, opacity: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <circle
-        cx="0"
-        cy="0"
-        r={intense ? "45" : "38"}
-        fill="url(#sunGradient)"
-      />
-      <motion.g animate={reduced ? {} : { rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }}>
-        {[...Array(12)].map((_, i) => (
-          <line
-            key={i}
-            x1="0"
-            y1="-50"
-            x2="0"
-            y2={intense ? "-25" : "-35"}
-            stroke="#FFD700"
-            strokeWidth="6"
-            strokeLinecap="round"
-            transform={`rotate(${i * 30})`}
-            opacity="0.8"
-          />
-        ))}
-      </motion.g>
-      {intense && (
-        <motion.circle
+    <g transform="translate(100, 100)">
+      <motion.g
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.5, opacity: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <circle
           cx="0"
           cy="0"
-          r="60"
-          stroke="#FF4500"
-          strokeWidth="2"
-          fill="transparent"
-          animate={reduced ? { opacity: 0.3 } : { scale: [1, 1.15, 1], opacity: [0.3, 0, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
+          r={intense ? "45" : "38"}
+          fill="url(#sunGradient)"
         />
-      )}
-    </motion.g>
-  </g>
+        <motion.g
+          animate={reduced ? {} : { rotate: 360 }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        >
+          {[...Array(12)].map((_, i) => (
+            <line
+              key={i}
+              x1="0"
+              y1="-50"
+              x2="0"
+              y2={intense ? "-25" : "-35"}
+              stroke="#FFD700"
+              strokeWidth="6"
+              strokeLinecap="round"
+              transform={`rotate(${i * 30})`}
+              opacity="0.8"
+            />
+          ))}
+        </motion.g>
+        {intense && (
+          <motion.circle
+            cx="0"
+            cy="0"
+            r="60"
+            stroke="#FF4500"
+            strokeWidth="2"
+            fill="transparent"
+            animate={
+              reduced
+                ? { opacity: 0.3 }
+                : { scale: [1, 1.15, 1], opacity: [0.3, 0, 0.3] }
+            }
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        )}
+      </motion.g>
+    </g>
   );
 });
 SunIllustration.displayName = "SunIllustration";
@@ -166,100 +173,110 @@ const CloudIllustration = memo(
   }) => {
     const reduced = useReducedMotion();
     return (
-    <g transform="translate(100, 100)">
-      <motion.g
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 20, opacity: 0 }}
-        transition={{ duration: 0.8 }}
-      >
-        <motion.path
-          d="M-25,15 Q-40,15 -40,0 Q-40,-20 -15,-20 Q-10,-45 25,-45 Q60,-45 60,-15 Q80,-15 80,5 Q80,25 50,25 L-25,25"
-          fill={dark ? "url(#cloudDarkGradient)" : "url(#cloudGradient)"}
-          filter="url(#glow)"
-          transform="translate(-20, 0)"
-          animate={reduced ? {} : { y: [0, -6, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {storm && (
+      <g transform="translate(100, 100)">
+        <motion.g
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 20, opacity: 0 }}
+          transition={{ duration: 0.8 }}
+        >
           <motion.path
-            d="M10,25 L-5,45 L5,45 L-10,70"
-            stroke="#FFD700"
-            strokeWidth="3"
-            fill="none"
-            initial={{ opacity: 0 }}
-            animate={reduced ? { opacity: 1 } : { opacity: [0, 1, 0, 0, 1, 0] }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              repeatDelay: Math.random() * 2,
-            }}
+            d="M-25,15 Q-40,15 -40,0 Q-40,-20 -15,-20 Q-10,-45 25,-45 Q60,-45 60,-15 Q80,-15 80,5 Q80,25 50,25 L-25,25"
+            fill={dark ? "url(#cloudDarkGradient)" : "url(#cloudGradient)"}
+            filter="url(#glow)"
+            transform="translate(-20, 0)"
+            animate={reduced ? {} : { y: [0, -6, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           />
-        )}
 
-        {rain && (
-          <g transform="translate(-30, 15)">
-            {[...Array(5)].map((_, i) => (
-              <motion.line
-                key={i}
-                x1={i * 20}
-                y1="0"
-                x2={i * 20 - 5}
-                y2={15}
-                stroke="#A0D8EF"
-                strokeWidth="3"
-                strokeLinecap="round"
-                initial={{ y: -10, opacity: 0 }}
-                animate={reduced ? { y: 25, opacity: 1 } : { y: 25, opacity: [0, 1, 0] }}
-                transition={{
-                  duration: 0.9,
-                  repeat: Infinity,
-                  delay: i * 0.15,
-                  ease: "linear",
-                }}
-              />
-            ))}
-          </g>
-        )}
-      </motion.g>
-    </g>
+          {storm && (
+            <motion.path
+              d="M10,25 L-5,45 L5,45 L-10,70"
+              stroke="#FFD700"
+              strokeWidth="3"
+              fill="none"
+              initial={{ opacity: 0 }}
+              animate={
+                reduced ? { opacity: 1 } : { opacity: [0, 1, 0, 0, 1, 0] }
+              }
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                repeatDelay: 1.25,
+              }}
+            />
+          )}
+
+          {rain && (
+            <g transform="translate(-30, 15)">
+              {[...Array(5)].map((_, i) => (
+                <motion.line
+                  key={i}
+                  x1={i * 20}
+                  y1="0"
+                  x2={i * 20 - 5}
+                  y2={15}
+                  stroke="#A0D8EF"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={
+                    reduced
+                      ? { y: 25, opacity: 1 }
+                      : { y: 25, opacity: [0, 1, 0] }
+                  }
+                  transition={{
+                    duration: 0.9,
+                    repeat: Infinity,
+                    delay: i * 0.15,
+                    ease: "linear",
+                  }}
+                />
+              ))}
+            </g>
+          )}
+        </motion.g>
+      </g>
     );
-  }
+  },
 );
 CloudIllustration.displayName = "CloudIllustration";
 
 const MoonIllustration = memo(({ clear = true }: { clear?: boolean }) => {
   const reduced = useReducedMotion();
   return (
-  <g transform="translate(100, 100)">
-    <motion.g
-      initial={{ scale: 0.8, opacity: 0, rotate: -15 }}
-      animate={{ scale: 1, opacity: 1, rotate: 0 }}
-      exit={{ scale: 0.8, opacity: 0, rotate: 15 }}
-      transition={{ duration: 0.8 }}
-    >
-      <circle cx="0" cy="0" r="38" fill="url(#moonGradient)" />
-      <circle cx="15" cy="-10" r="5" fill="rgba(0,0,0,0.1)" />
-      <circle cx="-10" cy="10" r="8" fill="rgba(0,0,0,0.1)" />
-      <circle cx="-15" cy="-15" r="4" fill="rgba(0,0,0,0.1)" />
+    <g transform="translate(100, 100)">
+      <motion.g
+        initial={{ scale: 0.8, opacity: 0, rotate: -15 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        exit={{ scale: 0.8, opacity: 0, rotate: 15 }}
+        transition={{ duration: 0.8 }}
+      >
+        <circle cx="0" cy="0" r="38" fill="url(#moonGradient)" />
+        <circle cx="15" cy="-10" r="5" fill="rgba(0,0,0,0.1)" />
+        <circle cx="-10" cy="10" r="8" fill="rgba(0,0,0,0.1)" />
+        <circle cx="-15" cy="-15" r="4" fill="rgba(0,0,0,0.1)" />
 
-      {clear &&
-        [...Array(4)].map((_, i) => (
-          <motion.path
-            key={i}
-            d="M0,-10 L2,-2 L10,0 L2,2 L0,10 L-2,2 L-10,0 L-2,-2 Z"
-            fill="#FFF"
-            transform={`translate(${30 + i * 20}, ${-40 + (i % 2) * 60}) scale(${0.4})`}
-            animate={reduced ? { opacity: 0.8, scale: 0.4 } : {
-              opacity: [0.3, 1, 0.3],
-              scale: [0.3, 0.6, 0.3],
-            }}
-            transition={{ duration: 2 + i, repeat: Infinity }}
-          />
-        ))}
-    </motion.g>
-  </g>
+        {clear &&
+          [...Array(4)].map((_, i) => (
+            <motion.path
+              key={i}
+              d="M0,-10 L2,-2 L10,0 L2,2 L0,10 L-2,2 L-10,0 L-2,-2 Z"
+              fill="#FFF"
+              transform={`translate(${30 + i * 20}, ${-40 + (i % 2) * 60}) scale(${0.4})`}
+              animate={
+                reduced
+                  ? { opacity: 0.8, scale: 0.4 }
+                  : {
+                      opacity: [0.3, 1, 0.3],
+                      scale: [0.3, 0.6, 0.3],
+                    }
+              }
+              transition={{ duration: 2 + i, repeat: Infinity }}
+            />
+          ))}
+      </motion.g>
+    </g>
   );
 });
 MoonIllustration.displayName = "MoonIllustration";
@@ -267,49 +284,53 @@ MoonIllustration.displayName = "MoonIllustration";
 const CometIllustration = memo(() => {
   const reduced = useReducedMotion();
   return (
-  <g transform="translate(100, 100)">
-    <defs>
-      <linearGradient id="cometTail" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFF" stopOpacity="0" />
-        <stop offset="100%" stopColor="#FFF" stopOpacity="0.9" />
-      </linearGradient>
-    </defs>
-    {[...Array(10)].map((_, i) => (
-      <motion.circle
-        key={`star-${i}`}
-        cx={(Math.random() - 0.5) * 180}
-        cy={(Math.random() - 0.5) * 180}
-        r={Math.random() * 1.5 + 1}
-        fill="#FFF"
-        animate={reduced ? { opacity: 0.6 } : { opacity: [0.3, 0.8, 0.3] }}
+    <g transform="translate(100, 100)">
+      <defs>
+        <linearGradient id="cometTail" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFF" stopOpacity="0" />
+          <stop offset="100%" stopColor="#FFF" stopOpacity="0.9" />
+        </linearGradient>
+      </defs>
+      {[...Array(10)].map((_, i) => (
+        <motion.circle
+          key={`star-${i}`}
+          cx={((i * 47 + 11) % 181) - 90}
+          cy={((i * 73 + 29) % 181) - 90}
+          r={1 + ((i * 37) % 15) / 10}
+          fill="#FFF"
+          animate={reduced ? { opacity: 0.6 } : { opacity: [0.3, 0.8, 0.3] }}
+          transition={{
+            duration: 1 + ((i * 31) % 20) / 10,
+            repeat: Infinity,
+          }}
+        />
+      ))}
+      <motion.g
+        initial={{ x: -100, y: -100, opacity: 0 }}
+        animate={
+          reduced
+            ? { x: 20, y: 20, opacity: 1 }
+            : {
+                x: [-50, 100],
+                y: [-50, 100],
+                opacity: [0, 1, 1, 0],
+              }
+        }
         transition={{
-          duration: Math.random() * 2 + 1,
+          duration: 3.5,
           repeat: Infinity,
+          repeatDelay: 0.5,
+          ease: "easeInOut",
         }}
-      />
-    ))}
-    <motion.g
-      initial={{ x: -100, y: -100, opacity: 0 }}
-      animate={reduced ? { x: 20, y: 20, opacity: 1 } : {
-        x: [-50, 100],
-        y: [-50, 100],
-        opacity: [0, 1, 1, 0],
-      }}
-      transition={{
-        duration: 3.5,
-        repeat: Infinity,
-        repeatDelay: 0.5,
-        ease: "easeInOut",
-      }}
-    >
-      <path
-        d="M-20,-20 L40,40 L0,50 Z"
-        fill="url(#cometTail)"
-        transform="rotate(-45)"
-      />
-      <circle cx="40" cy="40" r="8" fill="#FFF" filter="url(#glow)" />
-    </motion.g>
-  </g>
+      >
+        <path
+          d="M-20,-20 L40,40 L0,50 Z"
+          fill="url(#cometTail)"
+          transform="rotate(-45)"
+        />
+        <circle cx="40" cy="40" r="8" fill="#FFF" filter="url(#glow)" />
+      </motion.g>
+    </g>
   );
 });
 CometIllustration.displayName = "CometIllustration";
@@ -360,7 +381,7 @@ const useWeather = (config: WeatherConfig) => {
         setCoords({
           ...DEFAULT_LOCATION,
           name: `${DEFAULT_LOCATION.name} (Default)`,
-        })
+        }),
     );
   }, [config.location]);
 
@@ -431,7 +452,7 @@ const useWeather = (config: WeatherConfig) => {
 function resolveWeatherSize(
   width: number,
   height: number,
-  fallback: WeatherConfig["size"]
+  fallback: WeatherConfig["size"],
 ): WeatherConfig["size"] {
   if (width <= 0 || height <= 0) return fallback;
   if (width < 240 || height < 190) return "1x1";
@@ -451,7 +472,9 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
   const { data, loading, error, lastUpdated } = useWeather(config);
   const [debugState, setDebugState] = useState<WeatherState | "">("");
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [layoutSize, setLayoutSize] = useState<WeatherConfig["size"]>(config.size);
+  const [layoutSize, setLayoutSize] = useState<WeatherConfig["size"]>(
+    config.size,
+  );
 
   useEffect(() => {
     const element = rootRef.current;
@@ -475,47 +498,20 @@ export default function WeatherWidget(_props: WidgetRuntimeProps) {
     return () => observer.disconnect();
   }, [config.size]);
 
-  // Console debug commands (development only)
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      interface FancyWindow extends Window {
-        __fancyDashboard?: {
-          debug?: Record<string, unknown>;
-        };
-      }
-      const win = window as FancyWindow;
-      // Use namespaced global to avoid conflicts
-      if (!win.__fancyDashboard) {
-        win.__fancyDashboard = {};
-      }
-      if (!win.__fancyDashboard.debug) {
-        win.__fancyDashboard.debug = {};
-      }
-
-      win.__fancyDashboard.debug.weather = {
-        setState: (state: WeatherState) => {
-          console.log(`[Weather Debug] Setting state to: ${state}`);
-          setDebugState(state);
-        },
-        clearState: () => {
-          console.log("[Weather Debug] Clearing forced state");
-          setDebugState("");
-        },
-        getAvailableStates: () => Object.keys(WEATHER_THEMES),
-      };
-
-      console.log(
-        "[Weather Widget] Debug commands available: window.__fancyDashboard.debug.weather.setState(state), .clearState(), .getAvailableStates()"
-      );
-    }
-  }, []);
-
   if (error && !data) {
     return (
       <div className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-[clamp(1rem,6cqi,2.5rem)] border border-slate-700 bg-slate-900/90 p-[clamp(0.75rem,5cqi,1.5rem)] text-center text-white shadow-2xl backdrop-blur-xl">
-        <AlertTriangle className="mb-3 text-red-400" size={40} aria-hidden="true" />
-        <h3 className="text-[clamp(1rem,7cqi,1.25rem)] font-semibold">Weather Unavailable</h3>
-        <p className="mt-2 max-w-full truncate text-[clamp(0.7rem,4cqi,0.875rem)] text-slate-400">{error}</p>
+        <AlertTriangle
+          className="mb-3 text-red-400"
+          size={40}
+          aria-hidden="true"
+        />
+        <h3 className="text-[clamp(1rem,7cqi,1.25rem)] font-semibold">
+          Weather Unavailable
+        </h3>
+        <p className="mt-2 max-w-full truncate text-[clamp(0.7rem,4cqi,0.875rem)] text-slate-400">
+          {error}
+        </p>
       </div>
     );
   }

@@ -25,8 +25,6 @@ import {
   type SystemDashboardConfig,
 } from "./PCMonitor.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
-
 const PCMonitor = lazy(() => import("./PCMonitor"));
 const CPU = lazy(() => import("./widgets/CPU"));
 const RAM = lazy(() => import("./widgets/RAM"));
@@ -58,11 +56,8 @@ export default createModule({
     type: "react-icon",
     component: ActivityIcon,
   },
-  globalSettings: GlobalSettings,
-  globalPermissions: [
-    { kind: "system:specs" },
-    { kind: "system:telemetry" },
-  ],
+  globalSettings: null,
+  globalPermissions: [{ kind: "system:specs" }, { kind: "system:telemetry" }],
   widgets: [
     {
       id: "pc-monitor",

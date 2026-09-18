@@ -12,7 +12,6 @@ import {
   type FullTaskManagerConfig,
 } from "./widgets/FullTaskManager.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const QuickTaskWidget = lazy(() => import("./widgets/QuickTask"));
 const FullTaskManagerWidget = lazy(() => import("./widgets/FullTaskManager"));
 
@@ -40,13 +39,14 @@ export default createModule({
     type: "react-icon",
     component: CheckSquare,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {
       id: "quick-task",
       name: "QuickTask",
-      description: "Small quick-add widget synchronized with the full task manager.",
+      description:
+        "Small quick-add widget synchronized with the full task manager.",
       component: QuickTaskWidget,
       settingsComponent: null,
       permissions: [],
@@ -69,7 +69,8 @@ export default createModule({
     {
       id: "full-task-manager",
       name: "FullTaskManager",
-      description: "Responsive local task manager with filters and shared quick capture.",
+      description:
+        "Responsive local task manager with filters and shared quick capture.",
       component: FullTaskManagerWidget,
       settingsComponent: null,
       permissions: [],

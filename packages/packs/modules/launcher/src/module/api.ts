@@ -19,9 +19,9 @@ export interface IconBinaryData {
 const manifest: PluginManifest = {
   id: "launcher",
   name: "App Launcher Widget",
-  version: "1.0.0",
+  version: "1.1.0",
   description: "Widget lançador de aplicativos com suporte a .lnk",
-  permissions: ["bridge:invoke", "tauri:shell", "tauri:fs"],
+  permissions: ["bridge:invoke", "tauri:shell", "tauri:fs", "net:fetch"],
 };
 
 // ============================================================================
@@ -48,7 +48,7 @@ interface ApiResponse<T> {
 function handleApiError(
   functionName: string,
   response: { success: boolean; error?: { message?: string } },
-  fallbackMessage: string
+  fallbackMessage: string,
 ): never {
   const errorMsg = response.error?.message ?? fallbackMessage;
   BridgeLogger.error(manifest.id, functionName, errorMsg);
@@ -58,7 +58,7 @@ function handleApiError(
 function handleRustApiError(
   functionName: string,
   response: ApiResponse<unknown>,
-  fallbackMessage: string
+  fallbackMessage: string,
 ): never {
   const errorMsg = response.message ?? fallbackMessage;
   BridgeLogger.error(manifest.id, functionName, errorMsg);
@@ -75,14 +75,14 @@ function handleRustApiError(
 export async function importLnk(path: string): Promise<LnkInfo> {
   const response = await pluginInvoke<{ path: string }, ApiResponse<LnkInfo>>(
     "launcher_import_lnk",
-    { path }
+    { path },
   );
 
   if (!response.success) {
     handleApiError(
       "importLnk",
       response,
-      "Falha ao importar atalho. Verifique se o arquivo é um .lnk válido."
+      "Falha ao importar atalho. Verifique se o arquivo é um .lnk válido.",
     );
   }
 
@@ -91,7 +91,7 @@ export async function importLnk(path: string): Promise<LnkInfo> {
     handleRustApiError(
       "importLnk",
       apiResponse,
-      "Não foi possível ler informações do atalho"
+      "Não foi possível ler informações do atalho",
     );
   }
 
@@ -104,7 +104,7 @@ export async function importLnk(path: string): Promise<LnkInfo> {
   BridgeLogger.info(
     manifest.id,
     "importLnk",
-    `Atalho importado: ${apiResponse.data.display_name ?? "Sem nome"}`
+    `Atalho importado: ${apiResponse.data.display_name ?? "Sem nome"}`,
   );
   return apiResponse.data;
 }
@@ -116,7 +116,7 @@ export async function launchApp(config: LaunchConfig): Promise<LaunchResult> {
   BridgeLogger.info(
     manifest.id,
     "launchApp",
-    `Iniciando aplicativo: ${config.target}`
+    `Iniciando aplicativo: ${config.target}`,
   );
 
   const response = await pluginInvoke<
@@ -128,7 +128,7 @@ export async function launchApp(config: LaunchConfig): Promise<LaunchResult> {
     handleApiError(
       "launchApp",
       response,
-      "Falha ao iniciar aplicativo. O caminho pode estar incorreto ou o programa não existe."
+      "Falha ao iniciar aplicativo. O caminho pode estar incorreto ou o programa não existe.",
     );
   }
 
@@ -137,7 +137,7 @@ export async function launchApp(config: LaunchConfig): Promise<LaunchResult> {
     handleRustApiError(
       "launchApp",
       apiResponse,
-      "Não foi possível executar o aplicativo"
+      "Não foi possível executar o aplicativo",
     );
   }
 
@@ -151,13 +151,13 @@ export async function launchApp(config: LaunchConfig): Promise<LaunchResult> {
     BridgeLogger.info(
       manifest.id,
       "launchApp",
-      `Aplicativo iniciado com sucesso: ${config.target} (PID: ${apiResponse.data.pid ?? "N/A"})`
+      `Aplicativo iniciado com sucesso: ${config.target} (PID: ${apiResponse.data.pid ?? "N/A"})`,
     );
   } else {
     BridgeLogger.warn(
       manifest.id,
       "launchApp",
-      `Aplicativo pode não ter iniciado corretamente: ${config.target}`
+      `Aplicativo pode não ter iniciado corretamente: ${config.target}`,
     );
   }
 
@@ -170,14 +170,14 @@ export async function launchApp(config: LaunchConfig): Promise<LaunchResult> {
 export async function validateTarget(target: string): Promise<boolean> {
   const response = await pluginInvoke<{ target: string }, ApiResponse<boolean>>(
     "launcher_validate_target",
-    { target }
+    { target },
   );
 
   if (!response.success) {
     BridgeLogger.warn(
       manifest.id,
       "validateTarget",
-      "Falha ao validar caminho, assumindo inválido"
+      "Falha ao validar caminho, assumindo inválido",
     );
     return false;
   }
@@ -187,7 +187,7 @@ export async function validateTarget(target: string): Promise<boolean> {
     BridgeLogger.warn(
       manifest.id,
       "validateTarget",
-      apiResponse.message ?? "Validação inconclusiva"
+      apiResponse.message ?? "Validação inconclusiva",
     );
     return false;
   }
@@ -223,7 +223,7 @@ export async function openLnkDialog(): Promise<string | null> {
     BridgeLogger.info(
       manifest.id,
       "openLnkDialog",
-      "Seleção cancelada pelo usuário"
+      "Seleção cancelada pelo usuário",
     );
     return null;
   } catch (error) {
@@ -239,7 +239,7 @@ export async function openLnkDialog(): Promise<string | null> {
  */
 export async function getFileIcon(
   target: string,
-  iconLocation?: string
+  iconLocation?: string,
 ): Promise<IconBinaryData> {
   const response = await pluginInvoke<
     { target: string; iconLocation?: string },
@@ -253,7 +253,7 @@ export async function getFileIcon(
     handleApiError(
       "getFileIcon",
       response,
-      "Falha ao extrair o ícone do aplicativo."
+      "Falha ao extrair o ícone do aplicativo.",
     );
   }
 
@@ -262,7 +262,7 @@ export async function getFileIcon(
     handleRustApiError(
       "getFileIcon",
       apiResponse,
-      "Não foi possível extrair o ícone do arquivo"
+      "Não foi possível extrair o ícone do arquivo",
     );
   }
 
@@ -288,7 +288,7 @@ export async function fetchFavicon(url: string): Promise<IconBinaryData> {
     handleApiError(
       "fetchFavicon",
       response,
-      "Falha ao buscar favicon do site."
+      "Falha ao buscar favicon do site.",
     );
   }
 
@@ -297,7 +297,7 @@ export async function fetchFavicon(url: string): Promise<IconBinaryData> {
     handleRustApiError(
       "fetchFavicon",
       apiResponse,
-      "Não foi possível buscar favicon"
+      "Não foi possível buscar favicon",
     );
   }
 

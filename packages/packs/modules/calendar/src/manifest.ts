@@ -1,20 +1,22 @@
 import { defineModulePack } from "@fancydashboard/sdk/manifest";
 
 export const manifest = defineModulePack({
-  author: 'FancyDashboard Community',
-  description: 'A module for FancyDashboard',
+  author: "FancyDashboard Community",
+  description:
+    "Four responsive calendar views, including task-aware day and month layouts.",
   id: "calendar",
   name: "Calendar",
   version: "1.0.0",
   apiVersion: "1.0.0",
+  minHostVersion: "1.1.0",
   kind: "module",
   tier: "community",
   metadata: {
     category: "productivity",
-    tags: [],
+    tags: ["calendar", "tasks", "schedule"],
     license: "MIT",
-    repository: null,
-    screenshots: []
+    repository: "https://github.com/klabacher/fancy-dashboard-community",
+    screenshots: [],
   },
   entry: {
     frontend: "@fancydashboard/pack-module-calendar",

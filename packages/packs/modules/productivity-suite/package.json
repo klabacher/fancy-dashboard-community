@@ -1,6 +1,6 @@
 {
   "name": "@fancydashboard/pack-module-productivity-suite",
-  "version": "0.9.0",
+  "version": "2.0.0",
   "type": "module",
   "exports": {
     ".": {

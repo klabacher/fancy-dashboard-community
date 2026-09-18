@@ -5,7 +5,6 @@ import { createModule } from "@fancydashboard/sdk/plugins/createModule";
 import type { ModuleManifest } from "@fancydashboard/sdk/plugins/types";
 import { TodoConfigSchema, type TodoConfig } from "./Todo.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const TodoWidget = lazy(() => import("./widgets/Todo"));
 
 export default createModule({
@@ -32,7 +31,7 @@ export default createModule({
     type: "react-icon",
     component: ListTodoIcon,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {

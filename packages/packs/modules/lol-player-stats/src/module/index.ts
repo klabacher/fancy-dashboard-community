@@ -10,7 +10,6 @@ import {
   type LolPlayerStatsConfig,
 } from "./LolPlayerStats.config";
 
-const GlobalSettings = lazy(() => import("./settings/GlobalSettings"));
 const LolPlayerStatsWidget = lazy(() => import("./LolPlayerStatsWidget"));
 
 export default createModule({
@@ -37,7 +36,7 @@ export default createModule({
     type: "react-icon",
     component: Trophy,
   },
-  globalSettings: GlobalSettings,
+  globalSettings: null,
   globalPermissions: [],
   widgets: [
     {
