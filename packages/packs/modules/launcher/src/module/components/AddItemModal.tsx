@@ -552,9 +552,9 @@ export function AddItemModal({
                 </label>
                 <input
                   type="text"
-                  value={customCwd}
-                  onChange={(e) => setCustomCwd(e.target.value)}
-                  placeholder="C:\MyFolder"
+                  value={customArgs}
+                  onChange={(e) => setCustomArgs(e.target.value)}
+                  placeholder="--flag value"
                   className="
                     w-full px-3 py-2 text-sm
                     bg-white/5 border border-white/10 rounded-lg
@@ -564,16 +564,16 @@ export function AddItemModal({
                 />
               </div>
 
-              {/* Icon name (optional) */}
+              {/* Working directory (optional) */}
               <div>
                 <label className="text-xs text-white/60 mb-1 block">
-                  Icon Name (optional, from Lucide)
+                  Working Directory (optional)
                 </label>
                 <input
                   type="text"
-                  value={customIconUrl}
-                  onChange={(e) => setCustomIconUrl(e.target.value)}
-                  placeholder="Chrome, Code, Terminal..."
+                  value={customCwd}
+                  onChange={(e) => setCustomCwd(e.target.value)}
+                  placeholder="C:\MyFolder"
                   className="
                     w-full px-3 py-2 text-sm
                     bg-white/5 border border-white/10 rounded-lg
